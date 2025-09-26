@@ -36,7 +36,7 @@ METADATA_NAME = "https://bms-api.build.aau.dk/api/v1/metadata"
 # Set the username for the DB server (if you do not have one ask Simon)
 username = os.getenv('BD_API_USER')
 # Set the password for the DB server (if you do not have one ask Simon)
-password = os.getenv('BD_APU_PASSWORD')
+password = os.getenv('BD_API_PASSWORD')
 
 print(f"Username: {username}")
 print(f"Password: {password}")
@@ -202,10 +202,10 @@ def process_chunked_data(temp_files, na_drop_setting):
 # Main process
 if __name__ == '__main__':
     # Set the path where the different file(s) to run are located
-    files_to_run = glob.glob("C:/software/AAU/aau_group_project_7/db_extraction/log_maps/Log_map_TMV23_2025_02_28_Rooms_100.xlsx")
+    files_to_run = glob.glob("./log_maps/Log_map_TMV23_2025_02_28_MIN.xlsx")
 
     # Set the path for where the data file should be saved to
-    save_location = "C:/software/AAU/aau_group_project_7/db_extraction/SAVED_LOGS"
+    save_location = "./SAVED_LOGS"
 
     # Set the timestep size
     timestep = dt.timedelta(hours=10)
@@ -229,11 +229,11 @@ if __name__ == '__main__':
             
             # Start and endtime for the dataextraction 
             start_year = 2024
-            start_month = 2
+            start_month = 1
             start_day = 1
             start_hour = 4
             end_year = 2024
-            end_month = 6
+            end_month = 2
             end_day = 1
             end_hour = 4
             

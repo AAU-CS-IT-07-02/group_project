@@ -33,7 +33,7 @@ METADATA_NAME = "https://bms-api.build.aau.dk/api/v1/metadata"
 # Set the username for the DB server (if you do not have one ask Simon)
 username = os.getenv('BD_API_USER')
 # Set the password for the DB server (if you do not have one ask Simon)
-password = os.getenv('BD_APU_PASSWORD')
+password = os.getenv('BD_API_PASSWORD')
 
 print(f"Username: {username}")
 print(f"Password: {password}")
@@ -110,13 +110,12 @@ def fetch_trend_data_for_interval(starttime, endtime, externallogid, source_df, 
 # Main process
 if __name__ == '__main__':
     # Set the path where the different file(s) to run are located
-    files_to_run = glob.glob("C:/software/AAU/aau_group_project_7/db_extraction/log_maps/Log_map_TMV23_2025_02_28_Rooms_100.xlsx")
-
+    files_to_run = glob.glob("./log_maps/Log_map_TMV23_2025_02_28_MIN.xlsx")
     # Set the path for where the data file should be saved to
-    save_location = "C:/software/AAU/aau_group_project_7/db_extraction/SAVED_LOGS"
+    save_location = "./SAVED_LOGS"
 
     # Set the timestep size
-    timestep = dt.timedelta(hours=5)
+    timestep = dt.timedelta(hours=10)
 
     # In the final dataframe, when dropping NA values, should the row contain NA for all variables, or just for any variables before dropping the row?
     na_drop_setting = 'all'     # either 'any' or 'all'

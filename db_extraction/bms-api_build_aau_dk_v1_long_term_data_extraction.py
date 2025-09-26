@@ -37,11 +37,11 @@ print(f"Password: {password}")
 
 # Set the path where the different file(s) to run are located
 # files_to_run = glob.glob("log_maps/Log_map_TMV23_2025_02_28_MIN.xlsx") #TODO
-files_to_run = glob.glob("C:/software/AAU/aau_group_project_7/db_extraction/log_maps/Log_map_TMV23_2025_02_28_MIN.xlsx")
+files_to_run = glob.glob("./log_maps/Log_map_TMV23_2025_02_28_MIN.xlsx")
 
 
 # Set the path for where the data file should be saved to as a string, e.g. 'C:/Users/GQ05XY/Aalborg Universitet/SATO - General/TMV23/Data_from_BMS/Data_dumb_from_DB'
-save_location = "C:/software/AAU/aau_group_project_7/db_extraction/SAVED_LOGS"
+save_location = "./SAVED_LOGS"
 
 # Set the timestep size
 timestep = dt.timedelta(hours=1) #TODO
