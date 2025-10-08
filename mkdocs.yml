@@ -1,0 +1,21 @@
+site_name: Group Project 2 -- Sindy-MPC
+theme:
+  name: material
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.snippets
+
+nav:
+  - Home: index.md
+  - Database Extraction: db_extraction.md 
+  - Database Augmentation: db_augmentation.md 
+  - Thermodynamics Modeling: thermodynamics_modeling.md 
+  - Slurm pipeline: slurm_pipeline.md 
