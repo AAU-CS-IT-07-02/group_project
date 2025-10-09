@@ -1,12 +1,24 @@
+"""
+Augment sensor data with corresponding historical weather information.
+
+This script merges time-series data from indoor room sensors with hourly
+weather data (temperature) using a nearest backward timestamp match.
+The merged dataset is then exported to a CSV file for further analysis.
+
+Input Files:
+    - CSV with time-stamped sensor data
+    - CSV with hourly weather data with timestamps.
+
+Output:
+    - Merged dataset combining room sensor and weather data.
+"""
+
 import pandas as pd
 import time
-start_time = time.time()
 
-senzori = pd.read_csv("TMV23_2025_02_28_Rooms_100_memeff_2024_2__2024_6.csv", parse_dates=['time'])
-# we read the dataset , using each date value  as datetime
+start_time = time.time()
+sensor = pd.read_csv("TMV23_2025_02_28_Rooms_100_memeff_2024_2__2024_6.csv", parse_dates=['time'])
 temp = pd.read_csv("aalborg_weather_hourly.csv", parse_dates=['time'])
-# we read the weather dataset, using each date value  as datetime
-merged = pd.merge_asof(senzori, temp, on='time', direction='backward')
-# we merge the two datasets, each row will get the last known hourly temperature from the weather dataset, using the direction backwards
+merged = pd.merge_asof(sensor, temp, on='time', direction='backward')
 merged.to_csv("TMV23_2025_02_28_Rooms_100_memeff_2024_2__2024_6_augmented_weather.csv", index=False)
-print("--- %s seconds ---" % (time.time() - start_time))
+print("--- %s seconds ---" % (time.time() - start_time))<username>/<issue_number>/<milestone>_<goal>-<description of the issue>
