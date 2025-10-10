@@ -112,7 +112,7 @@ While likely beyond this project's scope due to time constraints, this control p
 
 ### 4.1 Project Scope
 
-The project has designed a comprehensive building management system, but realistically not everything will be finished in one semester. The main focus will be getting the thermodynamic simulation working well, and then attempting to implement a basic version of the controller.
+The project has been designed a comprehensive building management system, but realistically not everything will be finished given the one semester time constraint. The main focus will be getting the thermodynamic simulation working well, and then attempting to implement a basic version of the controller.
 
 **Primary focus areas:**
 - Building a thermodynamic model using SINDy
@@ -138,14 +138,13 @@ The work is split into three development milestones plus the final report:
 **Timeline:** Weeks 1-6  
 **Deliverables:**
 - Pipeline to extract data from AAU BUILD BMS
-- Clean dataset ready for training
+- Clean augmented dataset ready for training
 - Working SINDy model
 - Validation results and performance metrics
 - DMD backup implementation if SINDy doesn't work
 
 **Success criteria:**
 - Model predicts building behavior accurately
-- R² > 0.8 on test data
 - Fast enough to use for real-time control
 
 #### **Milestone 2: Smart Controller**
@@ -157,7 +156,7 @@ The work is split into three development milestones plus the final report:
 - Testing with simulated scenarios
 
 **Success criteria:**
-- Controller can coordinate multiple systems
+- Controller can coordinate multiple actuator
 - Works better than simple reactive controllers
 - Respects safety constraints
 
@@ -183,9 +182,10 @@ The work is split into three development milestones plus the final report:
 **Success criteria:**
 - Complete documentation of achieved results
 - Clear evaluation of system performance
-- Plan for future improvements
+- Cross-team knowledge of each area
+- Plan for future work
 
-### 4.3 Risk Management
+<!-- ### 4.3 Risk Management
 
 **Technical problems:**
 - SINDy might not work well → Use DMD instead
@@ -194,37 +194,29 @@ The work is split into three development milestones plus the final report:
 
 **Timeline problems:**
 - Running behind schedule → Focus on core features first
-- Integration issues → Ensure interfaces are well-defined
+- Integration issues → Ensure interfaces are well-defined -->
 
 ## 5. Requirements
 
 ### 5.1 Functional Requirements
-- Extract and process BMS data efficiently
+<!-- - Extract and process BMS data efficiently
 - Implement SINDy algorithms for system identification
 - Develop predictive control algorithms
 - Evaluate performance against baseline methods
-- Generate clear documentation and results
+- Generate clear documentation and results -->
 
 ### 5.2 Non-functional Requirements
 
 ## 6. References
 
-### Core Methodology
-1. Brunton, S. L., Proctor, J. L., & Kutz, J. N. (2016). Discovering governing equations from data by sparse identification of nonlinear dynamical systems. *PNAS*, 113(15), 3932-3937.
+1. Candanedo, J., Blum, D., Chen, Z., Fierro, G., Gori, V., Johra, H., Madsen, H., Marszal-Pomianowska, A., O'Neill, Z., Pradhan, O., Rovas, D., Sacco, F., Stensson, S., Thilker, C., Vallianos, C., Wen, J., & White, S. Data-Driven Smart Buildings: State-of-the-Art Review. *Department of the Built Environment, The Faculty of Engineering and Science, Energy and Buildings Research Group*.
 
-### Building Control
-2. Afram, A., & Janabi-Sharifi, F. (2014). Theory and applications of HVAC control systems–A review of model predictive control (MPC). *Building and Environment*, 72, 343-355.
+2. Brunton, S. L., Proctor, J. L., & Kutz, J. N. (2016). Discovering governing equations from data by sparse identification of nonlinear dynamical systems. *PNAS*, 113(15), 3932-3937.
 
-### Technical Documentation
-3. PySINDy Documentation: https://pysindy.readthedocs.io/en/latest/
-4. AAU BMS API Documentation (Internal)
+3. Afram, A., & Janabi-Sharifi, F. (2014). Theory and applications of HVAC control systems–A review of model predictive control (MPC). *Building and Environment*, 72, 343-355.
 
-### Additional References
-*[To be expanded during literature review phase]*
+4. Johra, H., Schaffer, M., Chaudhary, G., Kazmi, H. S., Le Dréau, J., & Petersen, S. What Metrics Does the Building Energy Performance Community Use to Compare Dynamic Models? *Department of Construction, Urban and Environmental Engineering, Faculty of Engineering and Science, Research Group for Energy in Buildings*.
 
-## 7. Amendments
----
+5. PySINDy Documentation: https://pysindy.readthedocs.io/en/latest/
 
-**Document Version:** 1.1  
-**Last Updated:** October 3, 2025  
----
+6. AAU BMS API Documentation (Internal)
