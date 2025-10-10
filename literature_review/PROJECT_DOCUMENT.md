@@ -217,6 +217,8 @@ The work is split into three development milestones plus the final report:
 
 4. Johra, H., Schaffer, M., Chaudhary, G., Kazmi, H. S., Le Dréau, J., & Petersen, S. What Metrics Does the Building Energy Performance Community Use to Compare Dynamic Models? *Department of Construction, Urban and Environmental Engineering, Faculty of Engineering and Science, Research Group for Energy in Buildings*.
 
-5. PySINDy Documentation: https://pysindy.readthedocs.io/en/latest/
+5. Kutz, J. N., Brunton, S. L., Brunton, B. W., & Proctor, J. L. (2016). Dynamic Mode Decomposition: Data-Driven Modeling of Complex Systems. SIAM. ISBN: 978-1-611974-49-2.
 
-6. AAU BMS API Documentation (Internal)
+6. PySINDy Documentation: https://pysindy.readthedocs.io/en/latest/
+
+7. AAU BMS API Documentation (Internal)
