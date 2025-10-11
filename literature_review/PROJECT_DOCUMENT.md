@@ -58,7 +58,8 @@ Additionally, the controller needs to calculate distant future states efficientl
 - **Manual ODE definition**: Given AAU BUILD's size, complexity, and high-dimensional functional dependencies, manually defining ordinary differential equations is ruled out, especially considering the team's limited expertise in this domain.
 - **UPPAAL finite-state automata**: While more approachable and well-supported by existing research, this approach is rejected due to the high barrier to entry for both the technique and tooling, given limited experience.
 - **Data-driven ODE approximation**: Leveraging the extensive dataset, grey/white box models can be trained that better align with the requirements. Two promising techniques are identified:
-  - **Sparse Identification of Nonlinear Dynamics (SINDy)**: Approximates nonlinear systems as sparse combinations of elements from a function library. This approach offers excellent research foundation and technical support through [PySINDy](https://github.com/dynamicslab/pysindy), with the flexibility to model both linear and nonlinear state-space representations.
+<!-- TODO: hard to read phrase above -->
+  - **Sparse Identification of Nonlinear Dynamics (SINDy)**: Approximates nonlinear systems as sparse combinations of elements from a function library. This approach offers an excellent research foundation and technical support through [PySINDy](https://github.com/dynamicslab/pysindy), with the flexibility to model both linear and nonlinear state-space representations.
   - **Dynamic Mode Decomposition (DMD)**: Approximates system dynamics through linearization of evolution modes. Well-supported academically and technically through [PyDMD](https://github.com/PyDMD/PyDMD), serving as a backup methodology.
 
 SINDy is chosen as the primary system identification technique, with DMD as a backup method in case the current function library implementation struggles to model the system dynamics.
@@ -79,7 +80,7 @@ Various control approaches are considered based on their suitability for the mul
 - **Finite-State Automata (UPPAAL)**: Could provide formal verification capabilities and handle discrete system states effectively. However, achieving performance comparable to other control methods might prove difficult, particularly for the complex, multi-dimensional optimization required in smart building control.
 
 **Advanced Control Strategies**:
-- **Optimal Control**: While this approach could handle multi-objective optimization needs and constraint requirements perfectly, it's simply too computationally expensive for real-time building control. Running detailed system simulations at every control step would be impractical.
+- **Optimal Control**: While this approach could handle multi-objective optimization needs and constraints requirements perfectly, it's simply too computationally expensive for real-time building control. Running detailed system simulations at every control step would be impractical.
 
 - **Model Predictive Control (MPC)**: Represents the optimal balance between performance and computational feasibility. MPC addresses all requirements through:
   - **Predictive capability**: Uses the thermodynamic model to forecast system behavior over a configurable prediction horizon
