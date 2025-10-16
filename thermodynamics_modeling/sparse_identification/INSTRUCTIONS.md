@@ -15,9 +15,10 @@ Materials:
 
 The steps for creating a venv:
 - change the directory to the directory of your project
-- run ```python3 -m venv your_venv_name```
-- run ```.\your_venv_name\Scripts\Activate.ps1``` for Windows PowerShell
-- run ```source myfirstproject/bin/activate``` for linux or macOS
+- run ```python3 -m venv venv```
+- run ```.\venv\Scripts\Activate.ps1``` for Windows PowerShell
+- run `> cd venv/Scripts` and `> activate` for command prompt  
+- run ```source venv/bin/activate``` for linux or macOS
 - install the requirements using the command ```pip install -r requirements.txt```
 - you can use whatever IDE you want, I have attached links for JetBrains PyCharm and JupyterLab
 - when you are done using the venv run the command "deactivate" in the Windows PowerShell

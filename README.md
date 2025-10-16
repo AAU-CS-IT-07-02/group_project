@@ -1,19 +1,19 @@
 # group_project
 Smart Building Control. Semester project for AAU's CS IT
 
-## Documentation of the whole project
+## Documentation of the whole project is managed by MkDocs
 
 1. Ensure that your python venv is ready by: 
-    - run ```python3 -m venv your_venv_name```
-    - run ```.\your_venv_name\Scripts\Activate.ps1``` for Windows PowerShell
-    - run ```source myfirstproject/bin/activate``` for linux or macOS
+    - run ```python3 -m venv venv```
+    - run ```.\venv\Scripts\Activate.ps1``` for Windows PowerShell
+    - run `> cd venv/Scripts` and `> activate` for command prompt  
+    - run ```source venv/bin/activate``` for linux or macOS
     - install the requirements using the command ```pip install -r requirements.txt```
 
 2. Run the mkdocs server with:
 ```bash
 mkdocs serve -a 0.0.0.0:<free-port>
 ```
-
 
 ## Guidelines for Writing Python Code (for Documentation with MkDocs)
 
