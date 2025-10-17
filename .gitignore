@@ -4,3 +4,4 @@ env/
 .vscode/
 .idea/
 .Database/*
+db_analysis_output/*
