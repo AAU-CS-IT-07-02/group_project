@@ -129,4 +129,3 @@ and z.
 
 ## Another example of how to use SINDy
 ::: thermodynamics_modeling.sparse_identification.another_example
-::: thermodynamics_modeling.sparse_identification.pysindy

@@ -4,4 +4,6 @@ env/
 .vscode/
 .idea/
 .Database/*
+__pycache__
+AAU-BUILD-sensor.actuator
 db_analysis_output/*

@@ -1,4 +1,5 @@
-site_name: Group Project 2 -- Sindy-MPC
+site_name: Group Project 2 -- Intelligent Building Management System through Data-Driven Thermodynamics Modeling and Control
+
 theme:
   name: material
 
@@ -14,7 +15,8 @@ markdown_extensions:
   - pymdownx.snippets
 
 nav:
-  - Home: index.md
+  - Home: index.md 
+  - Engineering Document: literature_review/PROJECT_DOCUMENT.md
   - Database Extraction: db_extraction.md 
   - Database Augmentation: db_augmentation.md 
   - Thermodynamics Modeling: thermodynamics_modeling.md 
