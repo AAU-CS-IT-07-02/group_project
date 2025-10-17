@@ -89,8 +89,8 @@ model.print()
 
 # Simulate and plot the results
 
-x_sim = model.simulate(x0_train, t_train)
-plot_kws = dict(linewidth=2)
+x_sim = model.simulate(x0_train, t_train) # see how the training and the test data are organised within the aforementioned variables; see also how control data influences the model (how does pysindy deal with it)
+plot_kws = dict(linewidth=2) # do we have to tell the model which atuator influences which sensor or can it learn by itself?
 
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))
 axs[0].plot(t_train, x_train[:, 0], "r", label="$x_0$", **plot_kws)
@@ -104,5 +104,5 @@ axs[1].plot(x_train[:, 0], x_train[:, 1], "r", label="$x_k$", **plot_kws)
 axs[1].plot(x_sim[:, 0], x_sim[:, 1], "k--", label="model", **plot_kws)
 axs[1].legend()
 axs[1].set(xlabel="$x_1$", ylabel="$x_2$")
-fig.show()
+plt.show()
 
