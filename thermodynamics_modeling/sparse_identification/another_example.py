@@ -104,5 +104,5 @@ axs[1].plot(x_train[:, 0], x_train[:, 1], "r", label="$x_k$", **plot_kws)
 axs[1].plot(x_sim[:, 0], x_sim[:, 1], "k--", label="model", **plot_kws)
 axs[1].legend()
 axs[1].set(xlabel="$x_1$", ylabel="$x_2$")
-fig.show()
+plt.show()
 
