@@ -1,6 +1,5 @@
 import pandas as pd
 import matplotlib
-# Set a non-GUI backend before importing pyplot
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -11,74 +10,65 @@ from datetime import datetime
 from datasets import load_dataset
 
 
-hf_dataset_id = "AAU-CS-IT-07-02/AAU-BUILD-sensor.actuator"
+HF_REPO_ID = "AAU-CS-IT-07-02/AAU-BUILD-sensor.actuator"
+DATA_FILE = "6roomsOffice/dataset_with_occupancy_delimiter_comma.csv"
 
-hf_data_file = "6roomsOffice/dataset_with_occupancy_delimiter_comma.csv" 
-
-
-def load_and_prepare_data(dataset_id, data_file):
-   
-    print(f"--- Loading data from Hugging Face: '{dataset_id}' ---")
+def get_data(dataset_id, data_file):
+    print(f"--- Grabbing data from Hugging Face: '{dataset_id}' ---")
     try:
-        
         dataset = load_dataset(dataset_id, data_files=data_file, split='train')
         df = dataset.to_pandas()
-        print("Dataset loaded successfully.")
+        print("...success.")
 
-       
+        
         if 'Unnamed: 0' in df.columns:
             df = df.drop(columns=['Unnamed: 0'])
 
-        if 'timestamp' in df.columns:
-            timestamp_col = 'timestamp'
-        else:
-            print("ERROR: Could not find a 'timestamp' column in the dataset.")
+        ts_col = 'timestamp' if 'timestamp' in df.columns else None
+        if not ts_col:
+            print("ERROR: Could not find a 'timestamp' column.")
             return None
 
-        df[timestamp_col] = pd.to_datetime(df[timestamp_col], utc=True)
-        df.set_index(timestamp_col, inplace=True)
+        df[ts_col] = pd.to_datetime(df[ts_col], utc=True)
+        df = df.set_index(ts_col)
 
-        print("Data preprocessed successfully.")
+        print("Data preprocessed.")
         return df
     except Exception as e:
-        print(f"An error occurred while loading or processing the data: {e}")
+        print(f"An error occurred while loading the data: {e}")
         return None
 
 
-def generate_files(df, analysis_choices, start_str, end_str):
-  
-    print(f"\n--- Preparing data for analysis ---")
-    start_aware = pd.to_datetime(start_str, dayfirst=True, utc=True)
-    end_aware = pd.to_datetime(end_str, dayfirst=True, utc=True) + pd.Timedelta(days=1)
-    df_filtered = df.loc[start_aware:end_aware]
 
+def process_and_generate_files(df, user_choices, start_date, end_date):
+    print(f"\n--- Preparing data for analysis ---")
+    start_aware = pd.to_datetime(start_date, dayfirst=True, utc=True)
+    end_aware = pd.to_datetime(end_date, dayfirst=True, utc=True) + pd.Timedelta(days=1)
+    
+    df_filtered = df.loc[start_aware:end_aware]
     duration_days = (end_aware - start_aware).days
 
-    columns_to_plot = set()
-    for choice in analysis_choices:
+    
+    cols_to_plot = set()
+    for choice in user_choices:
         if choice == 'VENTILATION':
-            vent_cols = {col for col in df.columns if 'ventilation' in col.lower()}
-            columns_to_plot.update(vent_cols)
+            cols_to_plot.update({col for col in df.columns if 'ventilation' in col.lower()})
         elif choice == 'HEATING':
-            heat_cols = {col for col in df.columns if col.startswith('Heating:')}
-            columns_to_plot.update(heat_cols)
-        else:
-            room_prefix = f'Room{choice}:'
-            room_cols = {col for col in df.columns if col.startswith(room_prefix)}
-            columns_to_plot.update(room_cols)
+            cols_to_plot.update({col for col in df.columns if col.startswith('Heating:')})
+        elif choice == 'OUTDOOR':
+            cols_to_plot.update({col for col in df.columns if col.startswith('Outdoor:')})
+        else: 
+            cols_to_plot.update({col for col in df.columns if col.startswith(f'Room{choice}:')})
 
-    if not columns_to_plot:
-        print(f"ERROR: No columns found for your choices '{', '.join(analysis_choices)}'. Please check your input.")
+    if not cols_to_plot:
+        print(f"ERROR: No columns found for your choices: {', '.join(user_choices)}")
         return
-
-    columns_to_plot = sorted(list(columns_to_plot))
-
-
-    df_to_save = df_filtered[columns_to_plot]
-    safe_start = start_str.replace('-', '')
-    safe_end = end_str.replace('-', '')
-    choice_str = "+".join(analysis_choices)
-    output_csv_name = f"filtered_data_{choice_str}_from_{safe_start}_to_{safe_end}.csv"
+        
+    cols_to_plot = sorted(list(cols_to_plot))
+    
+    df_to_save = df_filtered[cols_to_plot]
+    choice_str = "+".join(user_choices)
+    output_csv_name = f"filtered_data_{choice_str}_from_{start_date.replace('-', '')}_to_{end_date.replace('-', '')}.csv"
     try:
         df_to_save.to_csv(output_csv_name)
         print(f"\nSuccessfully saved filtered data to '{output_csv_name}'")
@@ -87,24 +77,22 @@ def generate_files(df, analysis_choices, start_str, end_str):
 
     
     output_folder = 'graphs'
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
     print(f"\nGraphs will be saved in the '{output_folder}' folder.")
 
-    for column in columns_to_plot:
-        df_hourly = df_filtered[[column]].resample('h').mean()
+    for col in cols_to_plot:
+        df_hourly = df_filtered[[col]].resample('h').mean()
 
-        if df_hourly[column].isnull().all():
-            print(f"Skipping '{column}' - no data in the selected time frame.")
+        if df_hourly[col].isnull().all():
+            print(f"Skipping '{col}' - no data in selected time frame.")
             continue
 
-        print(f"Creating graph for '{column}'...")
+        print(f"Creating graph for '{col}'...")
         plt.style.use('seaborn-v0_8-whitegrid')
         fig, ax = plt.subplots(figsize=(15, 8))
-        ax.plot(df_hourly.index, df_hourly[column], label=column, marker='o', linestyle='-', markersize=4)
+        ax.plot(df_hourly.index, df_hourly[col], label=col, marker='o', ls='-', ms=4)
 
-        title = f'Hourly Average for {column}\n({start_str} to {end_str})'
-        ax.set_title(title, fontsize=16)
+        ax.set_title(f'Hourly Average for {col}\n({start_date} to {end_date})', fontsize=16)
         ax.set_xlabel('Date and Time', fontsize=12)
         ax.set_ylabel('Value', fontsize=12)
         ax.legend(loc='best')
@@ -118,14 +106,12 @@ def generate_files(df, analysis_choices, start_str, end_str):
         else:
             ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%d-%b'))
-            ax.xaxis.set_minor_locator(None)
 
         plt.xticks(rotation=0, ha='center')
         plt.tight_layout()
 
-        safe_filename = column.replace(':', '_').replace('__', '_').replace('/', '_')
-        graph_filename = f"{safe_filename}.png"
-        graph_path = os.path.join(output_folder, graph_filename)
+        safe_filename = col.replace(':', '_').replace('__', '_').replace('/', '_')
+        graph_path = os.path.join(output_folder, f"{safe_filename}.png")
         try:
             plt.savefig(graph_path, dpi=300)
             print(f"  -> Saved to '{graph_path}'")
@@ -134,56 +120,50 @@ def generate_files(df, analysis_choices, start_str, end_str):
         plt.close(fig)
 
 
-def main():
 
+def main():
+    
     parser = argparse.ArgumentParser(
-        description="Analyze building sensor data from Hugging Face for specific rooms or systems.",
+        description="Analyze building sensor data from Hugging Face.",
         formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.add_argument("start_date", help="The start date for analysis in DD-MM-YYYY format.")
-    parser.add_argument("end_date", help="The end date for analysis in DD-MM-YYYY format.")
+    parser.add_argument("start_date", help="Start date (DD-MM-YYYY)")
+    parser.add_argument("end_date", help="End date (DD-MM-YYYY)")
     parser.add_argument(
         "choices",
-        help="One or more entities to analyze. Choose from:\n"
-             "A, B, C, D, E, F - for a specific room\n"
-             "VENTILATION - for all ventilation-related data\n"
-             "HEATING - for all heating-related data",
+        help="One or more things to analyze (e.g., A, B, HEATING, etc.)",
         nargs='+',
-        choices=['A', 'B', 'C', 'D', 'E', 'F', 'VENTILATION', 'HEATING', 'a', 'b', 'c', 'd', 'e', 'f', 'ventilation', 'heating']
+        choices=['A', 'B', 'C', 'D', 'E', 'F', 'VENTILATION', 'HEATING', 'OUTDOOR', 'a', 'b', 'c', 'd', 'e', 'f', 'ventilation', 'heating', 'outdoor']
     )
 
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
-        print("\nExample Usage:")
-        print("  python sroanalysis.py 01-04-2023 02-04-2023 A")
-        print("  python sroanalysis.py 15-05-2023 15-05-2023 B HEATING VENTILATION")
         sys.exit(1)
 
     args = parser.parse_args()
-    start_date_input = args.start_date
-    end_date_input = args.end_date
-    choice_inputs = [choice.upper() for choice in args.choices]
+    user_choices = [choice.upper() for choice in args.choices]
 
-    df = load_and_prepare_data(hf_dataset_id, hf_data_file)
+    df = get_data(HF_REPO_ID, DATA_FILE)
     if df is None:
         return
 
-    min_date = df.index.min().date()
-    max_date = df.index.max().date()
+    min_date, max_date = df.index.min().date(), df.index.max().date()
 
+    
     try:
-        dt_start = datetime.strptime(start_date_input, '%d-%m-%Y').date()
-        dt_end = datetime.strptime(end_date_input, '%d-%m-%Y').date()
-        if not (min_date <= dt_start <= max_date and min_date <= dt_end <= max_date and dt_end >= dt_start):
-             print(f"Error: Date range is outside the available data range ({min_date.strftime('%d-%m-%Y')} to {max_date.strftime('%d-%m-%Y')}).")
+        dt_start = datetime.strptime(args.start_date, '%d-%m-%Y').date()
+        dt_end = datetime.strptime(args.end_date, '%d-%m-%Y').date()
+        if not (min_date <= dt_start <= max_date and dt_end >= dt_start and dt_end <= max_date):
+             print(f"Error: Date range is invalid or outside available data ({min_date:%d-%m-%Y} to {max_date:%d-%m-%Y}).")
              sys.exit(1)
     except ValueError:
         print("Invalid date format. Please use DD-MM-YYYY.")
         sys.exit(1)
 
-    print(f"\n--- Running analysis for '{'+'.join(choice_inputs)}' from {start_date_input} to {end_date_input} ---")
-    generate_files(df, choice_inputs, start_date_input, end_date_input)
+    print(f"\n--- Running analysis for '{'+'.join(user_choices)}' from {args.start_date} to {args.end_date} ---")
+    process_and_generate_files(df, user_choices, args.start_date, args.end_date)
 
 
 if __name__ == '__main__':
     main()
+
