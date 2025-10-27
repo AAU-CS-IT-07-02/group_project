@@ -38,6 +38,14 @@ data = (Path() / "../data").resolve()
 
 @contextmanager
 def ignore_specific_warnings():
+    """
+    Ignores specific warnings
+    
+    Args:
+
+    Returns:
+        
+    """
     filters = copy(warnings.filters)
     warnings.filterwarnings("ignore", category=ConvergenceWarning)
     warnings.filterwarnings("ignore", category=LinAlgWarning)
@@ -62,6 +70,16 @@ integrator_keywords["atol"] = 1e-12
 
 
 def u_fun(t):
+    """
+    Computes the control input vector as a function of time.
+
+    Args:
+        t(np.ndarray): Time variable. NumPy array.
+
+    Returns:
+        np.ndarray: A (N, 2) array (if t is array-like) or a (1, 2) array (if t is scalar),
+        where each row represents the control input [sin(2t), t²].
+    """
     return np.column_stack([np.sin(2 * t), t**2])
 
 
