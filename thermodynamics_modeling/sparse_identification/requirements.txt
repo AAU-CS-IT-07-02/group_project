@@ -1,3 +1,4 @@
 pysindy==2.0.0
 matplotlib
 scipy
+pandas

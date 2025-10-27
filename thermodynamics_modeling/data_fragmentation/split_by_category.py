@@ -41,9 +41,9 @@ import pandas as pd
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Split data CSV into Sensors/Actuators/Configuration CSVs.")
     p.add_argument("--data", required=True, help="Path to the master data CSV.")
-    p.add_argument("--sensors", default="sensors.txt", required=True, help="Path to sensors list file.")
-    p.add_argument("--actuators", default="actuators.txt", required=True, help="Path to actuators list file.")
-    p.add_argument("--config", default="configuration.txt", required=True, help="Path to configuration list file.")
+    p.add_argument("--sensors", default="sensors.txt", help="Path to sensors list file.")
+    p.add_argument("--actuators", default="actuators.txt", help="Path to actuators list file.")
+    p.add_argument("--config", default="configuration.txt", help="Path to configuration list file.")
     p.add_argument("--outdir", default="out", help="Output directory for the split CSV files.")
     p.add_argument("--timestamp-col", default="timestamp", help="Name of timestamp column to keep in all outputs (if present).")
     p.add_argument("--sep", default=None, help="CSV delimiter. If omitted, auto-detect.")
