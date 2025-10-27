@@ -129,3 +129,6 @@ and z.
 
 ## Another example of how to use SINDy
 ::: thermodynamics_modeling.sparse_identification.another_example
+
+## Unknown control input function example
+::: thermodynamics_modeling.sparse_identification.control_input_ex
