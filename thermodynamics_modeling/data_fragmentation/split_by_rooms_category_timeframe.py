@@ -12,15 +12,19 @@ Features:
 - Loads only the required columns for memory efficiency
 - Logs missing and overlapping columns; optional --allow-overlap to include columns in multiple outputs
 - Optionally keeps a timestamp column in all outputs (default: 'timestamp')
+- Filters the data given specific rooms (It can be either no filtering, one room or multiple ones)
+- Filters the data based on a specified start and end time (eg. --start-time "3/1/2023 08:00")
 
 Usage:
     python3 split_by_category.py   
         --data ../../AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv   
         --sensors sensors.txt   
         --actuators actuators.txt   
-        --config configurations.txt   
+        --config configurations.txt  
         --outdir out   
         --timestamp-col timestamp
+        --timeframe timeframe.txt
+        --rooms rooms.txt 
 
 Optional flags:
     --sep ','                  # Force a delimiter (default: auto-detect)
@@ -34,7 +38,7 @@ import os
 import sys
 import re
 import fnmatch
-from typing import List, Dict, Set, Tuple, Callable
+from typing import List, Dict, Set, Tuple, Callable, Optional
 import pandas as pd
 
 
@@ -50,6 +54,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--allow-overlap", action="store_true", help="Allow columns to appear in multiple outputs.")
     p.add_argument("--strict", action="store_true", help="Fail if any listed columns are not found.")
     p.add_argument("--case-sensitive", action="store_true", help="Enable case-sensitive matching (default is case-insensitive).")
+    p.add_argument("--rooms", default="rooms.txt", help="Path to rooms list file.")
+    p.add_argument("--timeframe", default="timeframe.txt", help="Path to the file containing the desired timeframe.")
     return p.parse_args()
 
 
@@ -139,6 +145,55 @@ def autodetect_sep(path: str) -> str:
     sep = max(counts, key=counts.get)
     return sep if counts[sep] > 0 else ","
 
+# Timeframe
+def load_timeframe(path: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Load start and end time from the timeframe.txt file.
+    File format should be:
+    start: 3/1/2023 13:05
+    end: 3/2/2023 20:20
+    """
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    
+    with open(path, "r", encoding="utf-8-sig") as f:
+        for raw in f:
+            # Remove comments first, then strip whitespace
+            line = raw.split("#", 1)[0].strip()
+            if not line:
+                continue
+            
+            if line.lower().startswith("start:"):
+                start_time = line[6:].strip() # Get text after "start:"
+            elif line.lower().startswith("end:"):
+                end_time = line[4:].strip()   # Get text after "end:"
+                
+    return start_time, end_time
+# -----------------------------
+
+def load_room_list(path: str, case_sensitive: bool) -> List[str]:
+    """
+    Load list file for rooms. Supports multiple space-separated names per line.
+    If the file is empty, it will consider all collumns.
+    File format should be:
+    RoomA RoomB .... (or blank)
+    """
+    names: List[str] = []
+    with open(path, "r", encoding="utf-8-sig") as f:
+        for raw in f:
+            # Remove comments first, then strip whitespace
+            line_cleaned = raw.split("#", 1)[0].strip()
+            if not line_cleaned:
+                continue
+            
+            # Split on whitespace to get all names on the line
+            parts = line_cleaned.split() 
+            for part in parts:
+                name = part.strip()
+                if name:
+                    names.append(name if case_sensitive else name.lower())
+    return names
+
 
 def ensure_outdir(path: str):
     os.makedirs(path, exist_ok=True)
@@ -147,6 +202,9 @@ def ensure_outdir(path: str):
 def main():
     args = parse_args()
     ensure_outdir(args.outdir)
+
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
 
     # Detect or use provided sep
     sep = args.sep or autodetect_sep(args.data)
@@ -164,6 +222,44 @@ def main():
 
     # Prepare case sensitivity behavior
     case_sensitive = args.case_sensitive
+
+    # Room filtering, if any data is present in the rooms.txt
+    print(f"[info] Checking for room filter file: {args.rooms}...")
+    try:
+        room_names = load_room_list(args.rooms, case_sensitive)
+        
+        if not room_names:
+            print(f"[warn] Room file {args.rooms} is empty. No room filter applied.")
+        else:
+            print(f"[info] Filtering for columns containing: {room_names}")
+            filtered_cols = set()
+            
+            # Always keep the timestamp column
+            if args.timestamp_col in all_cols:
+                filtered_cols.add(args.timestamp_col)
+
+            # Map normalized columns to original cased columns
+            original_by_norm = { (c if case_sensitive else c.lower()): c for c in all_cols }
+            
+            for col_norm, col_orig in original_by_norm.items():
+                for room_name in room_names:
+                    if room_name in col_norm:  # This is the "contains" logic
+                        filtered_cols.add(col_orig)
+                        break # Column matched, no need to check other room names
+            
+            original_col_count = len(all_cols)
+            all_cols = sorted(list(filtered_cols))  # This FILTERS all_cols
+            
+            print(f"[info] Room filter reduced columns from {original_col_count} to {len(all_cols)}.")
+            if not all_cols:
+                 print("[error] Room filter resulted in 0 columns. Aborting.", file=sys.stderr)
+                 sys.exit(4)
+
+    except FileNotFoundError:
+        print(f"[info] Room file '{args.rooms}' not found.")
+    except Exception as e:
+        print(f"[error] Failed to process room file {args.rooms}: {e}", file=sys.stderr)
+        sys.exit(1)
 
     # Load patterns
     sensor_patterns = load_list_file(args.sensors, case_sensitive)
@@ -252,6 +348,21 @@ def main():
         print("[error] Strict mode: aborting due to missing exact column names.", file=sys.stderr)
         sys.exit(2)
 
+    print(f"[info] Checking for timeframe filter file: {args.timeframe}...")
+    try:
+        start_time, end_time = load_timeframe(args.timeframe)
+        if start_time: print(f"[info] Found start time: {start_time}")
+        if end_time: print(f"[info] Found end time: {end_time}")
+    except FileNotFoundError:
+        if args.timeframe == "timeframe.txt":
+            print(f"[info] Default timeframe file 'timeframe.txt' not found. Skipping time filter.")
+        else:
+            print(f"[error] Timeframe file not found: {args.timeframe}", file=sys.stderr)
+            sys.exit(1)
+    except Exception as e:
+        print(f"[error] Failed to process timeframe file {args.timeframe}: {e}", file=sys.stderr)
+        sys.exit(1)
+
     # Prepare to read only needed columns
     read_cols = set(sensors_cols) | set(actuators_cols) | set(config_cols)
     if not read_cols:
@@ -274,6 +385,36 @@ def main():
         print(f"[warn] usecols raised {ve}; reading full file and subsetting.")
         df = pd.read_csv(args.data, sep=sep, encoding="utf-8-sig", engine="python", on_bad_lines="warn")
 
+    if start_time or end_time:
+        ts_col = args.timestamp_col
+        if ts_col not in df.columns:
+            print(f"Timestamp column '{ts_col}' not found in data.", file=sys.stderr)
+        else:
+            print(f"[info] Applying time filter on column '{ts_col}'...")
+            original_rows = len(df)
+            try:
+                df[ts_col] = pd.to_datetime(df[ts_col])
+                df = df.dropna(subset=[ts_col]) # dismiss rows that are not in the desired timeframe
+
+                if start_time:
+                    start_dt = pd.to_datetime(start_time)
+                    df = df[df[ts_col] >= start_dt]
+                    print(f"[info] Applied start time filter: >= {start_time}")
+
+                if end_time:
+                    end_dt = pd.to_datetime(end_time)
+                    df = df[df[ts_col] <= end_dt]
+                    print(f"[info] Applied end time filter: <= {end_time}") # Added this print
+
+                filtered_rows = len(df)
+                print(f"[info] Time filter applied. Rows reduced from {original_rows} to {filtered_rows}.")
+                if filtered_rows == 0:
+                    print("[warn] Time filter resulted in 0 rows. Output files will be empty.")
+            
+            except Exception as e:
+                print(f"[error] Failed to apply time filter: {e}", file=sys.stderr)
+                print("[info] Skipping time filtering due to error.")
+        
     # Subset and write outputs
     outputs = [
         ("sensors", sensors_cols),
@@ -301,6 +442,13 @@ def main():
         rep.write(f"  Sensors: {len(sensors_cols)} (incl. timestamp if present)\n")
         rep.write(f"  Actuators: {len(actuators_cols)} (incl. timestamp if present)\n")
         rep.write(f"  Configuration: {len(config_cols)} (incl. timestamp if present)\n")
+
+        # Added timeframe information in the report
+        start_display = start_time if start_time else "Not specified"
+        end_display = end_time if end_time else "Not specified"
+        rep.write(f"Start time filter: {start_display}\n")
+        rep.write(f"End time filter: {end_display}\n")
+
         if total_missing:
             rep.write("\nMissing exact names not found in data:\n")
             if missing_sensors:
@@ -315,6 +463,7 @@ def main():
                 if v:
                     rep.write(f"  {k} ({len(v)}): {', '.join(v)}\n")
     print(f"[ok] Wrote report: {report_path}")
+
 
 
 if __name__ == "__main__":
