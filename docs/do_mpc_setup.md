@@ -53,3 +53,9 @@ To fix the error, make two small changes to the **last code cell** in your noteb
    ```
 
 After these changes, the cell will run successfully and create the `anim.gif` file.
+
+## 3. Results of the simulation
+
+**In the Images folder you can find a gif with the results of the MPC example.**
+
+![Animation of do-mpc results](Images/anim.gif)
