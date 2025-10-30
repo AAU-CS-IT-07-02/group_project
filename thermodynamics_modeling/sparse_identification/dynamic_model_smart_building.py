@@ -1,3 +1,37 @@
+"""
+Dynamic Modeling of Smart Building Systems using Sparse Identification of Nonlinear Dynamics.
+
+This module implements data-driven thermodynamic modeling for the AAU BUILD facility
+using PySINDy (Sparse Identification of Nonlinear Dynamics). The goal is to discover
+interpretable mathematical equations governing building behavior from real sensor and
+actuator data.
+
+Key Features:
+    - Robust handling of real-world building management system data
+    - Multiple interpolation methods for missing sensor values  
+    - Configurable feature libraries (polynomial, Fourier, identity)
+    - Flexible normalization and optimization strategies
+    - Temporal validation with predictive simulation
+    - Comprehensive hyperparameter tuning capabilities
+
+The discovered models serve as the foundation for Model Predictive Control (MPC)
+implementation, providing both accuracy for control and interpretability for
+safety verification in smart building applications.
+
+Example Usage:
+    ```bash
+    python dynamic_model_smart_building.py \
+        --sensors data_sensors.csv \
+        --actuators data_actuators.csv \
+        --polynomial-degree 2 \
+        --threshold 0.1 \
+        --normalize-data
+    ```
+
+Authors: AAU CS Master's Team (Group Project 2025)
+Project: Intelligent Building Management System through Data-Driven Thermodynamics Modeling
+"""
+
 import argparse
 
 import pandas as pd
@@ -12,6 +46,22 @@ import pysindy as ps
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse command-line arguments for the dynamic building modeling script.
+    
+    Returns:
+        argparse.Namespace: Parsed command-line arguments containing:
+            - Data file paths (sensors, actuators, configuration)
+            - Data processing parameters (interpolation, normalization)
+            - SINDy model hyperparameters (polynomial degree, threshold)
+            - Training/validation settings (train split, time step)
+            - Feature library and optimizer options
+    
+    Example:
+        ```bash
+        python dynamic_model_smart_building.py --sensors data_sensors.csv --polynomial-degree 3 --threshold 0.05
+        ```
+    """
     p = argparse.ArgumentParser(description="Dynamic modeling of smart building systems using sparse identification techniques.")
     
     # Data file paths
@@ -104,6 +154,25 @@ def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False
 def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: np.ndarray, 
                                     configuration_data: np.ndarray, interpolation_method: str = "linear") -> tuple:
     """
+    Interpolate missing values in building sensor and actuator data.
+    
+    Real building management systems often have missing data due to sensor failures,
+    communication issues, or maintenance periods. This function handles missing values
+    using pandas interpolation methods with forward/backward filling for edge cases.
+    
+    Parameters:
+        sensors_data: Sensor measurements (temperature, CO2, humidity, occupancy)
+        actuators_data: Actuator states (HVAC setpoints, ventilation rates, blind positions)
+        configuration_data: System configuration parameters
+        interpolation_method: Interpolation strategy ('linear', 'cubic', 'spline', etc.)
+        
+    Returns:
+        tuple: (sensors_clean, actuators_clean, configuration_clean) with interpolated values
+        
+    Note:
+        Reports the number of missing values before and after interpolation for data quality assessment.
+    """
+    """
     Simple interpolation of missing values using pandas.
     
     Parameters:
@@ -143,6 +212,25 @@ def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: 
     return sensors_clean, actuators_clean, configuration_clean
 
 def create_feature_library(library_type: str, polynomial_degree: int = 2, fourier_n_frequencies: int = 2):
+    """
+    Create a PySINDy feature library for building dynamics modeling.
+    
+    Different feature libraries capture different aspects of building thermodynamics:
+    - Polynomial: Nonlinear thermal relationships, heat transfer dependencies
+    - Fourier: Daily/seasonal cycles, periodic occupancy patterns  
+    - Identity: Linear relationships between variables
+    
+    Parameters:
+        library_type: Type of feature library ('polynomial', 'fourier', 'identity')
+        polynomial_degree: Maximum polynomial degree for nonlinear features
+        fourier_n_frequencies: Number of frequency components for periodic patterns
+        
+    Returns:
+        PySINDy feature library object
+        
+    Raises:
+        ValueError: If unknown library_type is specified
+    """
     """Create feature library based on specified type."""
     if library_type == "polynomial":
         return ps.PolynomialLibrary(degree=polynomial_degree)
@@ -155,6 +243,29 @@ def create_feature_library(library_type: str, polynomial_degree: int = 2, fourie
 
 def create_optimizer(optimizer_type: str, threshold: float = 0.1, alpha: float = 0.0, 
                     max_iter: int = 20, normalize_columns: bool = False, lasso_alpha: float = 0.01):
+    """
+    Create a sparse regression optimizer for SINDy model training.
+    
+    The optimizer determines which terms are included in the discovered equations
+    by enforcing sparsity (keeping only the most important relationships).
+    
+    Parameters:
+        optimizer_type: Type of optimizer ('stlsq' currently supported)
+        threshold: Sparsity threshold - smaller values remove more terms
+        alpha: Regularization parameter for numerical stability
+        max_iter: Maximum iterations for iterative algorithms
+        normalize_columns: Whether to normalize feature matrix columns
+        lasso_alpha: Alpha parameter for Lasso-based optimizers
+        
+    Returns:
+        PySINDy optimizer object
+        
+    Raises:
+        ValueError: If unknown optimizer_type is specified
+        
+    Note:
+        Additional optimizers (SR3, FROLS, etc.) are planned for future implementation.
+    """
     """Create optimizer based on specified type."""
     if optimizer_type == "stlsq":
         return ps.STLSQ(threshold=threshold, alpha=alpha, max_iter=max_iter, normalize_columns=normalize_columns)
@@ -173,6 +284,29 @@ def create_optimizer(optimizer_type: str, threshold: float = 0.1, alpha: float =
         raise ValueError(f"Unknown optimizer type: {optimizer_type}")
 
 def normalize_data(X: np.ndarray, U: np.ndarray, method: str = "minmax"):
+    """
+    Normalize building sensor and actuator data for numerical stability.
+    
+    Building data involves variables with very different scales:
+    - Temperature: ~15-30°C
+    - CO2: ~400-2000 ppm  
+    - Occupancy: 0-50 people
+    - HVAC setpoints: 0-100%
+    
+    Normalization ensures all variables contribute equally to the sparse regression.
+    
+    Parameters:
+        X: State variables (sensor measurements)
+        U: Control inputs (actuator commands)
+        method: Normalization method ('minmax', 'standard', 'robust')
+        
+    Returns:
+        tuple: (X_normalized, U_normalized, X_scaler, U_scaler)
+            Normalized data arrays and fitted scaler objects for inverse transformation
+            
+    Raises:
+        ValueError: If unknown normalization method is specified
+    """
     """Normalize data using specified method."""
     if method == "minmax":
         from sklearn.preprocessing import MinMaxScaler
@@ -195,6 +329,41 @@ def normalize_data(X: np.ndarray, U: np.ndarray, method: str = "minmax"):
     return X_normalized, U_normalized, X_scaler, U_scaler
 
 def main():
+    """
+    Main function for dynamic building modeling using Sparse Identification of Nonlinear Dynamics.
+    
+    This function implements the complete pipeline for discovering mathematical equations
+    that govern AAU BUILD's thermodynamic behavior from real sensor and actuator data.
+    
+    Workflow:
+        1. Load sensor, actuator, and configuration data from CSV files
+        2. Interpolate missing values using specified method
+        3. Prepare state variables (X) and control inputs (U) 
+        4. Optionally normalize data for numerical stability
+        5. Create SINDy model with specified feature library and optimizer
+        6. Train model on full dataset and display discovered equations
+        7. Validate model using train/test split and temporal simulation
+        8. Calculate prediction errors and generate comparison plots
+        
+    The discovered equations represent the building as a controlled dynamical system:
+        dX/dt = f(X, U)
+    where X are sensor measurements and U are actuator commands.
+    
+    Command-line arguments control all aspects of the modeling process,
+    allowing experimentation with different hyperparameters and configurations.
+    
+    Raises:
+        Exception: If simulation fails during validation phase
+        
+    Example:
+        ```bash
+        python dynamic_model_smart_building.py \
+            --polynomial-degree 3 \
+            --threshold 0.05 \
+            --normalize-data \
+            --train-split 0.8
+        ```
+    """
     args = parse_args()
 
     # Load data
