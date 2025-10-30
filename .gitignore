@@ -9,3 +9,4 @@ AAU-BUILD-sensor.actuator
 db_extraction/db_analysis/db_analysis_output
 db_extraction/db_analysis/graphs
 thermodynamics_modeling/data_fragmentation/out
+do_MPC/results
