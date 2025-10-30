@@ -75,7 +75,8 @@ G 5.8 explicitly depends on G 5.5, G 5.6, and G 5.7
 
 ### Option 2: GitHub CLI (Fastest)
 ```bash
-cd /home/runner/work/group_project/group_project
+# Navigate to the repository root directory
+cd /path/to/group_project
 
 gh issue create \
   --title "G 5.5 | Optimise the runtime of PySINDy" \
