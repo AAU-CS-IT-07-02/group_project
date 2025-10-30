@@ -36,9 +36,6 @@ import argparse
 
 import pandas as pd
 
-from contextlib import contextmanager
-from copy import copy
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -107,6 +104,8 @@ def parse_args() -> argparse.Namespace:
                    help="Type of feature library to use")
     p.add_argument("--fourier-n-frequencies", type=int, default=2, 
                    help="Number of frequencies for Fourier library")
+    p.add_argument("--no-interactions", action="store_true", 
+                   help="Disable interaction terms in feature library (default: include interactions)")
     
     # Optimizer options
     p.add_argument("--optimizer", default="stlsq", choices=["stlsq", "lasso", "ridge"], 
@@ -211,7 +210,7 @@ def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: 
     
     return sensors_clean, actuators_clean, configuration_clean
 
-def create_feature_library(library_type: str, polynomial_degree: int = 2, fourier_n_frequencies: int = 2):
+def create_feature_library(library_type: str, polynomial_degree: int = 2, fourier_n_frequencies: int = 2, include_interactions: bool = True):
     """
     Create a PySINDy feature library for building dynamics modeling.
     
@@ -224,6 +223,7 @@ def create_feature_library(library_type: str, polynomial_degree: int = 2, fourie
         library_type: Type of feature library ('polynomial', 'fourier', 'identity')
         polynomial_degree: Maximum polynomial degree for nonlinear features
         fourier_n_frequencies: Number of frequency components for periodic patterns
+        include_interactions: Whether to include interaction terms between variables
         
     Returns:
         PySINDy feature library object
@@ -233,7 +233,7 @@ def create_feature_library(library_type: str, polynomial_degree: int = 2, fourie
     """
     """Create feature library based on specified type."""
     if library_type == "polynomial":
-        return ps.PolynomialLibrary(degree=polynomial_degree)
+        return ps.PolynomialLibrary(degree=polynomial_degree, include_interaction=include_interactions)
     elif library_type == "fourier":
         return ps.FourierLibrary(n_frequencies=fourier_n_frequencies)
     elif library_type == "identity":
@@ -414,7 +414,8 @@ def main():
         X, U, X_scaler, U_scaler = normalize_data(X, U, args.normalization_method)
     
     # Create feature library and optimizer
-    feature_library = create_feature_library(args.feature_library, args.polynomial_degree, args.fourier_n_frequencies)
+    feature_library = create_feature_library(args.feature_library, args.polynomial_degree, args.fourier_n_frequencies, 
+                                            include_interactions=not args.no_interactions)
     optimizer = create_optimizer(args.optimizer, args.threshold, args.alpha, args.max_iter, 
                                 args.normalize_columns, args.lasso_alpha)
     
@@ -444,7 +445,7 @@ def main():
     print(f"\nValidation with {args.train_split:.1%} train / {1-args.train_split:.1%} test split...")
     
     # Retrain on training data only
-    model.fit(X_train, u=U_train, t=args.dt)
+    # model.fit(X_train, u=U_train, t=args.dt)
     
     # Predict on test data
     try:
