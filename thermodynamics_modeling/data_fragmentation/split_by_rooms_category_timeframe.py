@@ -194,6 +194,15 @@ def load_room_list(path: str, case_sensitive: bool) -> List[str]:
                     names.append(name if case_sensitive else name.lower())
     return names
 
+def sanitize_filename(text: str) -> str:
+    """
+    Replaces all invalid filename characters and spaces with a single underscore.
+    """
+    # Replace slashes, colons, and spaces
+    text = re.sub(r'[\\/: ]', '_', text)
+    # Remove any other characters that are not alphanumeric, underscore, or hyphen
+    text = re.sub(r'[^A-Za-z0-9_-]', '', text)
+    return text
 
 def ensure_outdir(path: str):
     os.makedirs(path, exist_ok=True)
@@ -414,7 +423,32 @@ def main():
             except Exception as e:
                 print(f"[error] Failed to apply time filter: {e}", file=sys.stderr)
                 print("[info] Skipping time filtering due to error.")
+
+    # Configure the folder name - rooms
+    if not room_names:
+        room_part = "all_data"
+    else:
+        room_part = "_".join([sanitize_filename(r) for r in room_names])
+
+    # Time
+    time_parts = []
+    if start_time:
+        time_parts.append(sanitize_filename(start_time))
+    if end_time:
+        time_parts.append(sanitize_filename(end_time))
         
+    if not time_parts:
+        time_part = "entire_timeframe"
+    else:
+        time_part = "_".join(time_parts)
+
+    # Create the directory
+    dynamic_folder_name = f"{room_part}_{time_part}"
+    final_out_dir = os.path.join(args.outdir, dynamic_folder_name)
+    ensure_outdir(final_out_dir)
+    
+    print(f"[info] Saving results to new directory: {final_out_dir}")
+       
     # Subset and write outputs
     outputs = [
         ("sensors", sensors_cols),
@@ -424,12 +458,12 @@ def main():
 
     for name, cols in outputs:
         cols_in_df = [c for c in cols if c in df.columns]
-        out_path = os.path.join(args.outdir, f"data_{name}.csv")
+        out_path = os.path.join(final_out_dir, f"data_{name}.csv")
         pd.DataFrame(df, columns=cols_in_df).to_csv(out_path, index=False, encoding="utf-8-sig")
         print(f"[ok] Wrote {name}: {out_path} (columns: {len(cols_in_df)})")
 
     # Write a small report
-    report_path = os.path.join(args.outdir, "split_report.txt")
+    report_path = os.path.join(final_out_dir, "split_report.txt")
     with open(report_path, "w", encoding="utf-8-sig") as rep:
         rep.write("Split Report\n")
         rep.write("====================\n")
