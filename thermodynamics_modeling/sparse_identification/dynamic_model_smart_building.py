@@ -11,6 +11,7 @@ Key Features:
     - Multiple interpolation methods for missing sensor values  
     - Configurable feature libraries (polynomial, Fourier, identity)
     - Flexible normalization and optimization strategies
+    - Simple data downsampling for faster training
     - Temporal validation with predictive simulation
     - Comprehensive hyperparameter tuning capabilities
 
@@ -20,6 +21,7 @@ safety verification in smart building applications.
 
 Example Usage:
     ```bash
+    # Standard usage
     python dynamic_model_smart_building.py \
         --sensors data_sensors.csv \
         --actuators data_actuators.csv \
@@ -121,6 +123,10 @@ def parse_args() -> argparse.Namespace:
     # System monitoring options
     p.add_argument("--monitor-interval", type=int, default=20, 
                    help="Interval in seconds for logging system usage (CPU, RAM, etc). Set to 0 to disable monitoring.")
+    
+    # Data sampling options for performance optimization
+    p.add_argument("--sampling-rate", type=int, default=1, 
+                   help="Downsample data by taking every N-th sample (1=no sampling, 10=10x speedup)")
     
     return p.parse_args()
 
@@ -357,6 +363,26 @@ def normalize_data(X: np.ndarray, U: np.ndarray, method: str = "minmax"):
     
     return X_normalized, U_normalized, X_scaler, U_scaler
 
+def downsample_data(sensors_data: np.ndarray, actuators_data: np.ndarray, configuration_data: np.ndarray, sampling_rate: int = 1) -> tuple:
+    """
+    Downsample building data for faster training by taking every N-th sample.
+    
+    Parameters:
+        sensors_data: Sensor measurements array
+        actuators_data: Actuator commands array
+        configuration_data: Configuration data array
+        sampling_rate: Take every N-th sample (1=no downsampling, 10=10x speedup)
+        
+    Returns:
+        tuple: (sensors_downsampled, actuators_downsampled, configuration_downsampled)
+    """
+    if sampling_rate <= 1:
+        return sensors_data, actuators_data, configuration_data
+    
+    # Take every N-th sample
+    indices = np.arange(0, len(sensors_data), sampling_rate)
+    return sensors_data[indices], actuators_data[indices], configuration_data[indices]
+
 def main():
     """
     Main function for dynamic building modeling using Sparse Identification of Nonlinear Dynamics.
@@ -367,12 +393,13 @@ def main():
     Workflow:
         1. Load sensor, actuator, and configuration data from CSV files
         2. Interpolate missing values using specified method
-        3. Prepare state variables (X) and control inputs (U) 
-        4. Optionally normalize data for numerical stability
-        5. Create SINDy model with specified feature library and optimizer
-        6. Train model on full dataset and display discovered equations
-        7. Validate model using train/test split and temporal simulation
-        8. Calculate prediction errors and generate comparison plots
+        3. Downsample data for performance optimization (if requested)
+        4. Combine sensor/configuration data into state variables (X)
+        5. Normalize data for numerical stability (if requested)
+        6. Create SINDy model with specified feature library and optimizer
+        7. Train model on preprocessed dataset and display discovered equations
+        8. Validate model using train/test split and temporal simulation
+        9. Calculate prediction errors and generate comparison plots
         
     The discovered equations represent the building as a controlled dynamical system:
         dX/dt = f(X, U)
@@ -390,10 +417,55 @@ def main():
             --polynomial-degree 3 \
             --threshold 0.05 \
             --normalize-data \
-            --train-split 0.8
+            --sampling-rate 10
         ```
     """
     args = parse_args()
+
+    # Record start time for job duration
+    import time
+    start_time = time.time()
+    
+    # Print comprehensive parameter summary for cluster data collection
+    print("="*80)
+    print("PYSINDY BUILDING DYNAMICS MODELING - JOB CONFIGURATION")
+    print("="*80)
+    print(f"Data Files:")
+    print(f"  Sensors:       {args.sensors}")
+    print(f"  Actuators:     {args.actuators}")
+    print(f"  Configuration: {args.configuration}")
+    print(f"  CSV Separator: {args.sep}")
+    print(f"")
+    print(f"Data Processing:")
+    print(f"  Interpolation Method:  {args.interpolation_method}")
+    print(f"  Include Configuration: {args.include_configuration}")
+    print(f"  Sampling Rate:         {args.sampling_rate} ({'no downsampling' if args.sampling_rate <= 1 else f'{args.sampling_rate}x speedup'})")
+    print(f"  Normalize Data:        {args.normalize_data}")
+    print(f"  Normalization Method:  {args.normalization_method}")
+    print(f"  Time Step (dt):        {args.dt}")
+    print(f"")
+    print(f"SINDy Model Configuration:")
+    print(f"  Feature Library:       {args.feature_library}")
+    print(f"  Polynomial Degree:     {args.polynomial_degree}")
+    print(f"  Fourier Frequencies:   {args.fourier_n_frequencies}")
+    print(f"  Include Interactions:  {not args.no_interactions}")
+    print(f"  Optimizer:             {args.optimizer}")
+    print(f"  Sparsity Threshold:    {args.threshold}")
+    print(f"  Regularization Alpha:  {args.alpha}")
+    print(f"  Max Iterations:        {args.max_iter}")
+    print(f"  Normalize Columns:     {args.normalize_columns}")
+    print(f"  Lasso Alpha:           {args.lasso_alpha}")
+    print(f"")
+    print(f"Training/Validation:")
+    print(f"  Train Split:           {args.train_split}")
+    print(f"  Skip Validation:       {args.skip_validation}")
+    print(f"  Skip Visualization:    {args.skip_visualization}")
+    print(f"")
+    print(f"System:")
+    print(f"  Monitor Interval:      {args.monitor_interval}s")
+    print(f"  Output Directory:      {args.outdir}")
+    print("="*80)
+    print("")
 
     # Start system monitoring
     start_monitoring(args.monitor_interval)
@@ -420,30 +492,43 @@ def main():
         sensors_data, actuators_data, configuration_data, args.interpolation_method
     )
     
+    # Downsample data for faster training
+    original_size = len(sensors_data)
+    if args.sampling_rate > 1:
+        print(f"\nDownsampling data (every {args.sampling_rate} samples)...")
+        sensors_data, actuators_data, configuration_data = downsample_data(
+            sensors_data, actuators_data, configuration_data, args.sampling_rate
+        )
+        print(f"  Original size: {original_size:,} timesteps")
+        print(f"  Downsampled size: {len(sensors_data):,} timesteps")
+        print(f"  Speedup: {args.sampling_rate}x")
+    else:
+        print(f"No downsampling applied (using full dataset)")
+    
     # Combine data based on configuration
     if args.include_configuration:
         X = np.hstack([sensors_data, configuration_data])
-        print("Using sensors + configuration as state variables")
+        print(f"\nUsing sensors + configuration as state variables")
     else:
         X = sensors_data
-        print("Using sensors only as state variables")
+        print(f"\nUsing sensors only as state variables")
     
     # Use actuators as control inputs (U)
     U = actuators_data
     
+    # Optionally normalize data
+    if args.normalize_data:
+        print(f"Normalizing data using {args.normalization_method} method...")
+        X, U, X_scaler, U_scaler = normalize_data(X, U, args.normalization_method)
+    
     # Create time vector
     t = np.arange(len(X)) * args.dt
     
-    print(f"\nPrepared for SINDy:")
+    print(f"\nFinal data prepared for SINDy:")
     print(f"  States X: {X.shape}")
     print(f"  Controls U: {U.shape}")
     print(f"  Time points: {len(t)}")
     print(f"  dt: {args.dt}")
-    
-    # Optionally normalize data
-    if args.normalize_data:
-        print(f"\nNormalizing data using {args.normalization_method} method...")
-        X, U, X_scaler, U_scaler = normalize_data(X, U, args.normalization_method)
     
     # Create feature library and optimizer
     feature_library = create_feature_library(args.feature_library, args.polynomial_degree, args.fourier_n_frequencies, 
@@ -509,6 +594,37 @@ def main():
                 
         except Exception as e:
             print(f"Simulation failed: {e}")
+    
+    # Calculate and print job duration
+    end_time = time.time()
+    total_duration = end_time - start_time
+    hours = int(total_duration // 3600)
+    minutes = int((total_duration % 3600) // 60)
+    seconds = total_duration % 60
+    
+    # Print parseable summary for cluster data collection
+    print("")
+    print("CLUSTER_DATA_SUMMARY_START")
+    print(f"SAMPLING_RATE={args.sampling_rate}")
+    print(f"POLYNOMIAL_DEGREE={args.polynomial_degree}")
+    print(f"THRESHOLD={args.threshold}")
+    print(f"NORMALIZE_DATA={args.normalize_data}")
+    print(f"FEATURE_LIBRARY={args.feature_library}")
+    print(f"OPTIMIZER={args.optimizer}")
+    print(f"INTERPOLATION_METHOD={args.interpolation_method}")
+    print(f"TOTAL_DURATION_SECONDS={total_duration:.2f}")
+    print(f"SPEEDUP_FACTOR={args.sampling_rate}")
+    print(f"SKIP_VALIDATION={args.skip_validation}")
+    print("CLUSTER_DATA_SUMMARY_END")
+    
+    print("")
+    print("="*80)
+    print("JOB COMPLETED - TIMING SUMMARY")
+    print("="*80)
+    print(f"Total Duration: {hours:02d}h {minutes:02d}m {seconds:05.2f}s ({total_duration:.2f}s total)")
+    print(f"Start Time:     {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
+    print(f"End Time:       {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time))}")
+    print("="*80)
 
 if __name__ == "__main__":
     main()
