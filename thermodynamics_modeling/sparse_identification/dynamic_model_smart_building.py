@@ -33,13 +33,14 @@ Project: Intelligent Building Management System through Data-Driven Thermodynami
 """
 
 import argparse
+import threading
+import time
 
 import pandas as pd
-
 import matplotlib.pyplot as plt
 import numpy as np
-
 import pysindy as ps
+import psutil
 
 
 def parse_args() -> argparse.Namespace:
@@ -74,7 +75,7 @@ def parse_args() -> argparse.Namespace:
                    help="Method for interpolating missing values")
     p.add_argument("--include-configuration", action="store_true", 
                    help="Include configuration variables in state vector (default: sensors only)")
-    p.add_argument("--dt", type=float, default=0.1, 
+    p.add_argument("--dt", type=float, default=5, 
                    help="Time step between measurements")
     
     # SINDy model hyperparameters
@@ -92,6 +93,10 @@ def parse_args() -> argparse.Namespace:
     # Training/validation hyperparameters
     p.add_argument("--train-split", type=float, default=0.7, 
                    help="Fraction of data to use for training (rest for validation)")
+    p.add_argument("--skip-validation", action="store_true", 
+                   help="Skip validation step after training")
+    p.add_argument("--skip-visualization", action="store_true", 
+                   help="Skip plotting and visualization")
     
     # Data normalization options
     p.add_argument("--normalize-data", action="store_true", 
@@ -113,7 +118,31 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--lasso-alpha", type=float, default=0.01, 
                    help="Alpha parameter for Lasso optimizer")
     
+    # System monitoring options
+    p.add_argument("--monitor-interval", type=int, default=20, 
+                   help="Interval in seconds for logging system usage (CPU, RAM, etc). Set to 0 to disable monitoring.")
+    
     return p.parse_args()
+
+def log_system_usage():
+    """Log current CPU and RAM usage."""
+    cpu = psutil.cpu_percent()
+    memory = psutil.virtual_memory()
+    print(f"[MONITOR] CPU: {cpu:.1f}% | RAM: {memory.percent:.1f}% ({memory.used/1024**3:.1f}GB/{memory.total/1024**3:.1f}GB)")
+
+def start_monitoring(interval_seconds: int):
+    """Start background monitoring thread."""
+    if interval_seconds <= 0:
+        return None
+    
+    def monitor():
+        while True:
+            time.sleep(interval_seconds)
+            log_system_usage()
+    
+    thread = threading.Thread(target=monitor, daemon=True)
+    thread.start()
+    return thread
 
 def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False, drop_timestamps: bool = True) -> np.ndarray:
     """
@@ -366,6 +395,9 @@ def main():
     """
     args = parse_args()
 
+    # Start system monitoring
+    start_monitoring(args.monitor_interval)
+    
     # Load data
     print("Loading data...")
     sensors_df = get_csv_data(args.sensors, args.sep)
@@ -436,43 +468,47 @@ def main():
     print("\nDiscovered equations:")
     model.print()
     
-    # Simple validation: split data and test prediction
-    split = int(args.train_split * len(X))
-    X_train, X_test = X[:split], X[split:]
-    U_train, U_test = U[:split], U[split:]
-    t_test = np.arange(len(X_test)) * args.dt
-    
-    print(f"\nValidation with {args.train_split:.1%} train / {1-args.train_split:.1%} test split...")
-    
-    # Retrain on training data only
-    # model.fit(X_train, u=U_train, t=args.dt)
-    
-    # Predict on test data
-    try:
-        X_pred = model.simulate(X_test[0], t_test, u=U_test)
+    # Optional validation step
+    if not args.skip_validation:
+        # Simple validation: split data and test prediction
+        split = int(args.train_split * len(X))
+        X_train, X_test = X[:split], X[split:]
+        U_train, U_test = U[:split], U[split:]
+        t_test = np.arange(len(X_test)) * args.dt
         
-        # Calculate error
-        min_len = min(len(X_test), len(X_pred))
-        # TODO: are there more interesting error metrics?
-        rmse = np.sqrt(np.mean((X_test[:min_len] - X_pred[:min_len])**2))
+        print(f"\nValidation with {args.train_split:.1%} train / {1-args.train_split:.1%} test split...")
         
-        print(f"\nValidation RMSE: {rmse:.6f}")
+        # Retrain on training data only
+        model.fit(X_train, u=U_train, t=args.dt)
         
-        # Simple plot (fixed visualization parameters)
-        # TODO: plot all states on a multiplot figure
-        plt.figure(figsize=(12, 6))
-        for i in range(min(3, X.shape[1])):  # Plot first 3 states
-            plt.subplot(3, 1, i+1)
-            plt.plot(X_test[:min_len, i], 'k-', label='True')
-            plt.plot(X_pred[:min_len, i], 'r--', label='Predicted')
-            plt.ylabel(f'State {i+1}')
-            plt.legend()
-        plt.xlabel('Time steps')
-        plt.tight_layout()
-        plt.show()
-        
-    except Exception as e:
-        print(f"Simulation failed: {e}")
+        # Predict on test data
+        try:
+            X_pred = model.simulate(X_test[0], t_test, u=U_test)
+            
+            # Calculate error
+            min_len = min(len(X_test), len(X_pred))
+            # TODO: are there more interesting error metrics?
+            rmse = np.sqrt(np.mean((X_test[:min_len] - X_pred[:min_len])**2))
+            
+            print(f"\nValidation RMSE: {rmse:.6f}")
+            
+            # Optional visualization
+            if not args.skip_visualization:
+                # Simple plot (fixed visualization parameters)
+                # TODO: plot all states on a multiplot figure
+                plt.figure(figsize=(12, 6))
+                for i in range(min(3, X.shape[1])):  # Plot first 3 states
+                    plt.subplot(3, 1, i+1)
+                    plt.plot(X_test[:min_len, i], 'k-', label='True')
+                    plt.plot(X_pred[:min_len, i], 'r--', label='Predicted')
+                    plt.ylabel(f'State {i+1}')
+                    plt.legend()
+                plt.xlabel('Time steps')
+                plt.tight_layout()
+                plt.show()
+                
+        except Exception as e:
+            print(f"Simulation failed: {e}")
 
 if __name__ == "__main__":
     main()
