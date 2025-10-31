@@ -1,0 +1,5 @@
+﻿do-mpc
+numpy
+casadi
+matplotlib
+pillow

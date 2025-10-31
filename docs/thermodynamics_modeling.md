@@ -199,5 +199,4 @@ The script implements **temporal validation** by:
 ::: thermodynamics_modeling.sparse_identification.dynamic_model_smart_building
 
 ## Data fragmentation for the SBDM API
-::: thermodynamics_modeling.data_fragmentation.split_by_timeframe_rooms_cat
-
+::: thermodynamics_modeling.data_fragmentation.split_by_rooms_category_timeframe
