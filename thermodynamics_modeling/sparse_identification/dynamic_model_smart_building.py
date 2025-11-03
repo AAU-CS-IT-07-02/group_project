@@ -99,12 +99,10 @@ def parse_args() -> argparse.Namespace:
                    help="Skip validation step after training")
     p.add_argument("--skip-visualization", action="store_true", 
                    help="Skip plotting and visualization")
-    
-    # Data normalization options
-    p.add_argument("--normalize-data", action="store_true", 
-                   help="Normalize data before training")
-    p.add_argument("--normalization-method", default="minmax", choices=["minmax", "standard", "robust"], 
-                   help="Data normalization method")
+    p.add_argument("--validation-subsample", type=int, default=1, 
+                   help="Subsample validation data for faster simulation (1=full, 10=every 10th sample)")
+    p.add_argument("--simulation-timeout", type=int, default=60, 
+                   help="Maximum time (seconds) to wait for simulation before timeout")
     
     # Feature library options
     p.add_argument("--feature-library", default="polynomial", choices=["polynomial", "fourier", "identity"], 
@@ -317,52 +315,7 @@ def create_optimizer(optimizer_type: str, threshold: float = 0.1, alpha: float =
     #     return ps.MIOSR(target_sparsity=int(1/threshold) if threshold > 0 else 10, normalize_columns=normalize_columns)
     else:
         raise ValueError(f"Unknown optimizer type: {optimizer_type}")
-
-def normalize_data(X: np.ndarray, U: np.ndarray, method: str = "minmax"):
-    """
-    Normalize building sensor and actuator data for numerical stability.
     
-    Building data involves variables with very different scales:
-    - Temperature: ~15-30°C
-    - CO2: ~400-2000 ppm  
-    - Occupancy: 0-50 people
-    - HVAC setpoints: 0-100%
-    
-    Normalization ensures all variables contribute equally to the sparse regression.
-    
-    Parameters:
-        X: State variables (sensor measurements)
-        U: Control inputs (actuator commands)
-        method: Normalization method ('minmax', 'standard', 'robust')
-        
-    Returns:
-        tuple: (X_normalized, U_normalized, X_scaler, U_scaler)
-            Normalized data arrays and fitted scaler objects for inverse transformation
-            
-    Raises:
-        ValueError: If unknown normalization method is specified
-    """
-    """Normalize data using specified method."""
-    if method == "minmax":
-        from sklearn.preprocessing import MinMaxScaler
-        X_scaler = MinMaxScaler()
-        U_scaler = MinMaxScaler()
-    elif method == "standard":
-        from sklearn.preprocessing import StandardScaler
-        X_scaler = StandardScaler()
-        U_scaler = StandardScaler()
-    elif method == "robust":
-        from sklearn.preprocessing import RobustScaler
-        X_scaler = RobustScaler()
-        U_scaler = RobustScaler()
-    else:
-        raise ValueError(f"Unknown normalization method: {method}")
-    
-    X_normalized = X_scaler.fit_transform(X)
-    U_normalized = U_scaler.fit_transform(U)
-    
-    return X_normalized, U_normalized, X_scaler, U_scaler
-
 def downsample_data(sensors_data: np.ndarray, actuators_data: np.ndarray, configuration_data: np.ndarray, sampling_rate: int = 1) -> tuple:
     """
     Downsample building data for faster training by taking every N-th sample.
@@ -440,8 +393,6 @@ def main():
     print(f"  Interpolation Method:  {args.interpolation_method}")
     print(f"  Include Configuration: {args.include_configuration}")
     print(f"  Sampling Rate:         {args.sampling_rate} ({'no downsampling' if args.sampling_rate <= 1 else f'{args.sampling_rate}x speedup'})")
-    print(f"  Normalize Data:        {args.normalize_data}")
-    print(f"  Normalization Method:  {args.normalization_method}")
     print(f"  Time Step (dt):        {args.dt}")
     print(f"")
     print(f"SINDy Model Configuration:")
@@ -515,12 +466,7 @@ def main():
     
     # Use actuators as control inputs (U)
     U = actuators_data
-    
-    # Optionally normalize data
-    if args.normalize_data:
-        print(f"Normalizing data using {args.normalization_method} method...")
-        X, U, X_scaler, U_scaler = normalize_data(X, U, args.normalization_method)
-    
+        
     # Create time vector
     t = np.arange(len(X)) * args.dt
     
@@ -555,6 +501,8 @@ def main():
     
     # Optional validation step
     if not args.skip_validation:
+        validation_start = time.time()
+        
         # Simple validation: split data and test prediction
         split = int(args.train_split * len(X))
         X_train, X_test = X[:split], X[split:]
@@ -562,13 +510,90 @@ def main():
         t_test = np.arange(len(X_test)) * args.dt
         
         print(f"\nValidation with {args.train_split:.1%} train / {1-args.train_split:.1%} test split...")
+        print(f"  Training set: {len(X_train):,} timesteps")
+        print(f"  Test set: {len(X_test):,} timesteps")
+        
+        # Optionally subsample validation data for faster simulation
+        if args.validation_subsample > 1:
+            val_indices = np.arange(0, len(X_test), args.validation_subsample)
+            X_test_sub = X_test[val_indices]
+            U_test_sub = U_test[val_indices]
+            t_test_sub = np.arange(len(X_test_sub)) * args.dt
+            print(f"  Validation subsampling: every {args.validation_subsample} samples ({len(X_test_sub):,} timesteps)")
+            X_test, U_test, t_test = X_test_sub, U_test_sub, t_test_sub
         
         # Retrain on training data only
+        retrain_start = time.time()
         model.fit(X_train, u=U_train, t=args.dt)
+        retrain_time = time.time() - retrain_start
+        print(f"  Retraining time: {retrain_time:.2f}s")
         
         # Predict on test data
         try:
-            X_pred = model.simulate(X_test[0], t_test, u=U_test)
+            simulation_start = time.time()
+            
+            # Debug: Check model stability before simulation
+            print(f"  Debugging model before simulation...")
+            print(f"    Model coefficients shape: {model.coefficients().shape}")
+            print(f"    Model coefficient sparsity: {(model.coefficients() == 0).sum()}/{model.coefficients().size}")
+            print(f"    Max coefficient magnitude: {np.abs(model.coefficients()).max():.6f}")
+            
+            # Debug: Check initial conditions
+            print(f"    Initial state X_test[0]: {X_test[0][:5]}")  # Show first 5 values
+            print(f"    Initial state range: [{X_test[0].min():.3f}, {X_test[0].max():.3f}]")
+            
+            # Try shorter simulation first to check stability
+            short_t = t_test[:min(100, len(t_test))]  # Only first 100 timesteps
+            short_U = U_test[:len(short_t)]
+            
+            print(f"    Testing short simulation ({len(short_t)} steps)...")
+            try:
+                X_pred_short = model.simulate(X_test[0], short_t, u=short_U)
+                print(f"    Short simulation successful!")
+                print(f"    Short prediction range: [{X_pred_short.min():.3f}, {X_pred_short.max():.3f}]")
+                
+                # Check for numerical issues
+                if np.any(np.isnan(X_pred_short)) or np.any(np.isinf(X_pred_short)):
+                    print(f"    WARNING: NaN/Inf detected in short simulation!")
+                    raise ValueError("Numerical instability in simulation")
+                
+                if np.abs(X_pred_short).max() > 1e6:
+                    print(f"    WARNING: Very large values in simulation (max: {np.abs(X_pred_short).max():.2e})")
+                    raise ValueError("Simulation appears unstable (explosive growth)")
+                
+            except Exception as e:
+                print(f"    Short simulation failed: {e}")
+                raise e
+            
+            # If short simulation works, try full simulation with timeout
+            print(f"    Running full simulation ({len(t_test)} steps)...")
+            
+            # Set maximum simulation time (safety timeout)
+            max_sim_time = args.simulation_timeout
+            
+            def simulate_with_timeout():
+                return model.simulate(X_test[0], t_test, u=U_test)
+            
+            import signal
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError(f"Simulation timed out after {max_sim_time}s")
+            
+            # Set timeout alarm
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(max_sim_time)
+            
+            try:
+                X_pred = simulate_with_timeout()
+                signal.alarm(0)  # Cancel alarm
+            except TimeoutError as e:
+                signal.alarm(0)  # Cancel alarm
+                print(f"    {e}")
+                print(f"    Try using --validation-subsample for faster validation")
+                raise e
+            
+            simulation_time = time.time() - simulation_start
+            print(f"  Simulation time: {simulation_time:.2f}s")
             
             # Calculate error
             min_len = min(len(X_test), len(X_pred))
@@ -577,20 +602,66 @@ def main():
             
             print(f"\nValidation RMSE: {rmse:.6f}")
             
+            validation_total = time.time() - validation_start
+            print(f"Total validation time: {validation_total:.2f}s")
+            
             # Optional visualization
             if not args.skip_visualization:
+                # Configure matplotlib for headless operation (cluster-friendly)
+                import matplotlib
+                matplotlib.use('Agg')  # Use non-interactive backend
+                
                 # Simple plot (fixed visualization parameters)
-                # TODO: plot all states on a multiplot figure
-                plt.figure(figsize=(12, 6))
-                for i in range(min(3, X.shape[1])):  # Plot first 3 states
-                    plt.subplot(3, 1, i+1)
-                    plt.plot(X_test[:min_len, i], 'k-', label='True')
-                    plt.plot(X_pred[:min_len, i], 'r--', label='Predicted')
+                plt.figure(figsize=(12, 8))
+                n_states = min(5, X.shape[1])  # Plot up to 5 states
+                
+                for i in range(n_states):
+                    plt.subplot(n_states, 1, i+1)
+                    plt.plot(X_test[:min_len, i], 'k-', label='True', linewidth=1.5)
+                    plt.plot(X_pred[:min_len, i], 'r--', label='Predicted', linewidth=1.5, alpha=0.8)
                     plt.ylabel(f'State {i+1}')
                     plt.legend()
+                    
+                    # Calculate per-state error
+                    state_rmse = np.sqrt(np.mean((X_test[:min_len, i] - X_pred[:min_len, i])**2))
+                    plt.title(f'State {i+1} - RMSE: {state_rmse:.4f}')
+                    
                 plt.xlabel('Time steps')
+                plt.suptitle(f'Model Validation - Overall RMSE: {rmse:.4f}')
                 plt.tight_layout()
-                plt.show()
+                
+                # Save plot instead of showing (cluster-friendly)
+                plot_filename = f"{args.outdir}/validation_plot_sampling{args.sampling_rate}_degree{args.polynomial_degree}.png"
+                import os
+                os.makedirs(args.outdir, exist_ok=True)
+                plt.savefig(plot_filename, dpi=150, bbox_inches='tight')
+                plt.close()  # Important: close to free memory
+                print(f"Validation plot saved to: {plot_filename}")
+                
+                # Additional error analysis plot
+                plt.figure(figsize=(10, 6))
+                
+                # Plot prediction errors over time
+                error = X_test[:min_len] - X_pred[:min_len]
+                plt.subplot(2, 1, 1)
+                for i in range(min(3, X.shape[1])):
+                    plt.plot(error[:, i], label=f'State {i+1} Error', alpha=0.7)
+                plt.ylabel('Prediction Error')
+                plt.legend()
+                plt.title('Prediction Errors Over Time')
+                
+                # Plot error distribution
+                plt.subplot(2, 1, 2)
+                plt.hist(error.flatten(), bins=50, alpha=0.7, density=True)
+                plt.xlabel('Prediction Error')
+                plt.ylabel('Density')
+                plt.title('Error Distribution')
+                
+                plt.tight_layout()
+                error_filename = f"{args.outdir}/error_analysis_sampling{args.sampling_rate}_degree{args.polynomial_degree}.png"
+                plt.savefig(error_filename, dpi=150, bbox_inches='tight')
+                plt.close()
+                print(f"Error analysis plot saved to: {error_filename}")
                 
         except Exception as e:
             print(f"Simulation failed: {e}")
@@ -608,7 +679,7 @@ def main():
     print(f"SAMPLING_RATE={args.sampling_rate}")
     print(f"POLYNOMIAL_DEGREE={args.polynomial_degree}")
     print(f"THRESHOLD={args.threshold}")
-    print(f"NORMALIZE_DATA={args.normalize_data}")
+    print(f"NORMALIZE_COLS={args.normalize_columns}")
     print(f"FEATURE_LIBRARY={args.feature_library}")
     print(f"OPTIMIZER={args.optimizer}")
     print(f"INTERPOLATION_METHOD={args.interpolation_method}")
