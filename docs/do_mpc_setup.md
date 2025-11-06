@@ -20,4 +20,5 @@ You can install all the necessary packages using the provided `requirements.txt`
 
 **In the Images folder you can find a gif with the results of the MPC example.**
 
-![Animation of do-mpc results](Images/anim.gif)
+![gif](Images/anim.gif)
+
