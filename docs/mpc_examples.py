@@ -3,9 +3,9 @@ import sys
 from casadi import *
 
 # Add do_mpc to path. This is not necessary if it was installed via pip
-import os
-rel_do_mpc_path = os.path.join('..','..','..')
-sys.path.append(rel_do_mpc_path)
+# import os
+# rel_do_mpc_path = os.path.join('..','..','..')
+# sys.path.append(rel_do_mpc_path)
 
 # Import do_mpc package:
 import do_mpc
@@ -59,7 +59,8 @@ setup_mpc = {
     'collocation_ni': 2,
     'store_full_solution': True,
     # Use MA27 linear solver in ipopt for faster calculations:
-    'nlpsol_opts': {'ipopt.linear_solver': 'MA27'}
+    # 'nlpsol_opts': {'ipopt.linear_solver': 'MA27'}
+    # This solver cannot be used, it's proprietary
 }
 
 mpc.set_param(**setup_mpc)
@@ -89,8 +90,8 @@ S_in_values = np.array([200.0, 220.0, 180.0])
 
 mpc.set_uncertainty_values(Y_x = Y_x_values, S_in = S_in_values)
 
-mpc.set_param(nlpsol='sqpmethod')
-mpc.set_param(nlpsol_opts={'qpsol': 'qrqp'})
+# mpc.set_param(nlpsol='sqpmethod')
+# mpc.set_param(nlpsol_opts={'qpsol': 'qrqp'})
 
 mpc.setup()
 
@@ -138,7 +139,7 @@ import matplotlib.pyplot as plt
 plt.ion()
 from matplotlib import rcParams
 rcParams['text.usetex'] = True
-rcParams['text.latex.preamble'] = [r'\usepackage{amsmath}',r'\usepackage{siunitx}']
+# rcParams['text.latex.preamble'] = [r'\\usepackage{amsmath}',r'\\usepackage{siunitx}']
 rcParams['axes.grid'] = True
 rcParams['lines.linewidth'] = 2.0
 rcParams['axes.labelsize'] = 'xx-large'
@@ -169,13 +170,13 @@ ax[3].set_ylabel(r'$V_s~[\si[per-mode=fraction]{\mole\per\litre}]$')
 ax[4].set_ylabel(r'$u_{\text{inp}}~[\si[per-mode=fraction]{\cubic\metre\per\minute}]$')
 ax[4].set_xlabel(r'$t~[\si[per-mode=fraction]{\minute}]$')
 
-n_steps = 100
+n_steps = 10
 for k in range(n_steps):
     u0 = mpc.make_step(x0)
     y_next = simulator.make_step(u0)
     x0 = estimator.make_step(y_next)
-
-from matplotlib.animation import FuncAnimation, FFMpegWriter, ImageMagickWriter
+plt.show()
+from matplotlib.animation import FuncAnimation, PillowWriter, FFMpegWriter
 
 # The function describing the gif:
 def update(t_ind):
@@ -184,7 +185,7 @@ def update(t_ind):
     mpc_graphics.reset_axes()
 
 if False:
+    # Change this into a flag
     anim = FuncAnimation(fig, update, frames=n_steps, repeat=False)
-    gif_writer = ImageMagickWriter(fps=10)
+    gif_writer = FFMpegWriter(fps=10)
     anim.save('anim_batch_reactor_final.gif', writer=gif_writer)
-
