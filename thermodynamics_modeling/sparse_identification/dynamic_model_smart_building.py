@@ -104,6 +104,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--simulation-timeout", type=int, default=60, 
                    help="Maximum time (seconds) to wait for simulation before timeout")
     
+    # Data normalization options
+    p.add_argument("--normalize-data", action="store_true", 
+                   help="Normalize data before training")
+    p.add_argument("--normalization-method", default="minmax", choices=["minmax", "standard", "robust"], 
+                   help="Data normalization method")
+    
     # Feature library options
     p.add_argument("--feature-library", default="polynomial", choices=["polynomial", "fourier", "identity"], 
                    help="Type of feature library to use")
@@ -315,7 +321,52 @@ def create_optimizer(optimizer_type: str, threshold: float = 0.1, alpha: float =
     #     return ps.MIOSR(target_sparsity=int(1/threshold) if threshold > 0 else 10, normalize_columns=normalize_columns)
     else:
         raise ValueError(f"Unknown optimizer type: {optimizer_type}")
+
+def normalize_data(X: np.ndarray, U: np.ndarray, method: str = "minmax"):
+    """
+    Normalize building sensor and actuator data for numerical stability.
     
+    Building data involves variables with very different scales:
+    - Temperature: ~15-30°C
+    - CO2: ~400-2000 ppm  
+    - Occupancy: 0-50 people
+    - HVAC setpoints: 0-100%
+    
+    Normalization ensures all variables contribute equally to the sparse regression.
+    
+    Parameters:
+        X: State variables (sensor measurements)
+        U: Control inputs (actuator commands)
+        method: Normalization method ('minmax', 'standard', 'robust')
+        
+    Returns:
+        tuple: (X_normalized, U_normalized, X_scaler, U_scaler)
+            Normalized data arrays and fitted scaler objects for inverse transformation
+            
+    Raises:
+        ValueError: If unknown normalization method is specified
+    """
+    """Normalize data using specified method."""
+    if method == "minmax":
+        from sklearn.preprocessing import MinMaxScaler
+        X_scaler = MinMaxScaler()
+        U_scaler = MinMaxScaler()
+    elif method == "standard":
+        from sklearn.preprocessing import StandardScaler
+        X_scaler = StandardScaler()
+        U_scaler = StandardScaler()
+    elif method == "robust":
+        from sklearn.preprocessing import RobustScaler
+        X_scaler = RobustScaler()
+        U_scaler = RobustScaler()
+    else:
+        raise ValueError(f"Unknown normalization method: {method}")
+    
+    X_normalized = X_scaler.fit_transform(X)
+    U_normalized = U_scaler.fit_transform(U)
+    
+    return X_normalized, U_normalized, X_scaler, U_scaler
+
 def downsample_data(sensors_data: np.ndarray, actuators_data: np.ndarray, configuration_data: np.ndarray, sampling_rate: int = 1) -> tuple:
     """
     Downsample building data for faster training by taking every N-th sample.
@@ -393,6 +444,8 @@ def main():
     print(f"  Interpolation Method:  {args.interpolation_method}")
     print(f"  Include Configuration: {args.include_configuration}")
     print(f"  Sampling Rate:         {args.sampling_rate} ({'no downsampling' if args.sampling_rate <= 1 else f'{args.sampling_rate}x speedup'})")
+    print(f"  Normalize Data:        {args.normalize_data}")
+    print(f"  Normalization Method:  {args.normalization_method}")
     print(f"  Time Step (dt):        {args.dt}")
     print(f"")
     print(f"SINDy Model Configuration:")
@@ -466,7 +519,12 @@ def main():
     
     # Use actuators as control inputs (U)
     U = actuators_data
-        
+    
+    # Optionally normalize data
+    if args.normalize_data:
+        print(f"Normalizing data using {args.normalization_method} method...")
+        X, U, X_scaler, U_scaler = normalize_data(X, U, args.normalization_method)
+    
     # Create time vector
     t = np.arange(len(X)) * args.dt
     
@@ -679,7 +737,7 @@ def main():
     print(f"SAMPLING_RATE={args.sampling_rate}")
     print(f"POLYNOMIAL_DEGREE={args.polynomial_degree}")
     print(f"THRESHOLD={args.threshold}")
-    print(f"NORMALIZE_COLS={args.normalize_columns}")
+    print(f"NORMALIZE_DATA={args.normalize_data}")
     print(f"FEATURE_LIBRARY={args.feature_library}")
     print(f"OPTIMIZER={args.optimizer}")
     print(f"INTERPOLATION_METHOD={args.interpolation_method}")
