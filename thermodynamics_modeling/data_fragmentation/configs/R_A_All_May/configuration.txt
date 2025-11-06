@@ -1,0 +1,11 @@
+
+RoomA:Control__cooling_limit
+RoomA:Control__heating_limit
+RoomA:Control__setpoint_CO2
+RoomA:Control__setpoint_temperature_global
+RoomA:Control__setpoint_temperature_offset_from_global
+RoomA:Damper__setting_delay_deactivation
+RoomA:Light__setpoint
+RoomA:Light__setpoint_switch_off
+RoomA:Light__setting_delay_deactivation
+RoomA:Room__active

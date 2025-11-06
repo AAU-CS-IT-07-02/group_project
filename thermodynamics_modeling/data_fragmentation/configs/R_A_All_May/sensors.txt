@@ -1,0 +1,7 @@
+RoomA:Light__level__ceiling
+RoomA:Light__manual_on_off_signal
+RoomA:People__amount
+RoomA:Sensor__CO2
+RoomA:Sensor__room_temperature
+RoomA:Window__opened_closed
+RoomA_is_occupied

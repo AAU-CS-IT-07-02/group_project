@@ -1,0 +1,4 @@
+RoomA:AHU__active
+RoomA:Damper__position
+RoomA:Light__on_off_signal
+RoomA:Radiator__control_signal__motor_valve
