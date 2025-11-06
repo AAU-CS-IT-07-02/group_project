@@ -1,3 +1,16 @@
+
+"""
+Observation arrays follow the following axis conventions: (spatial_1, ..., spatial_n, time, coordinate). For ODEs (no spatial dependence), that means the first axis is time, the second axis is coordinate. pysindy also requires the timepoints of the observations. 
+While there are several ways to pass this information, the most straightfowrads is a 1-D array of timepoints.
+
+t, x, y = gen_data1()
+X = np.stack((x, y), axis=-1)  # First column is x, second is y
+print(f"Data is shape: {X.shape}")
+print(f"time is shape: {t.shape}")
+Data is shape: (50, 2)
+time is shape: (50,)
+"""
+
 """
 Dynamic Modeling of Smart Building Systems using Sparse Identification of Nonlinear Dynamics.
 
@@ -89,8 +102,10 @@ def parse_args() -> argparse.Namespace:
                    help="Regularization parameter for STLSQ optimizer")
     p.add_argument("--max-iter", type=int, default=20, 
                    help="Maximum iterations for STLSQ optimizer")
-    p.add_argument("--normalize-columns", action="store_true", 
+    p.add_argument("--normalize-columns", action="store_true",
                    help="Normalize feature matrix columns")
+    p.add_argument("--coefficient-threshold", type=float, default=1000.0, 
+                   help="Maximum allowed coefficient magnitude (for stability)")
     
     # Training/validation hyperparameters
     p.add_argument("--train-split", type=float, default=0.7, 
@@ -553,6 +568,21 @@ def main():
     # Train the model
     model.fit(X, u=U, t=args.dt)
     
+    # Check model stability
+    coeffs = model.coefficients()
+    max_coeff = np.abs(coeffs).max()
+    print(f"\nModel stability check:")
+    print(f"  Max coefficient magnitude: {max_coeff:.3f}")
+    print(f"  Coefficient threshold: {args.coefficient_threshold}")
+    
+    if max_coeff > args.coefficient_threshold:
+        print(f"  WARNING: Large coefficients detected! Model may be unstable.")
+        print(f"  Suggestions:")
+        print(f"    1. Increase sparsity threshold: --threshold {args.threshold * 2}")
+        print(f"    2. Add regularization: --alpha {max(0.1, args.alpha * 2)}")
+        print(f"    3. Force normalization: --force-normalization")
+        print(f"    4. Reduce polynomial degree: --polynomial-degree {max(1, args.polynomial_degree - 1)}")
+    
     # Print discovered equations
     print("\nDiscovered equations:")
     model.print()
@@ -601,7 +631,7 @@ def main():
             print(f"    Initial state range: [{X_test[0].min():.3f}, {X_test[0].max():.3f}]")
             
             # Try shorter simulation first to check stability
-            short_t = t_test[:min(100, len(t_test))]  # Only first 100 timesteps
+            short_t = t_test[:min(10, len(t_test))]  # Only first 100 timesteps
             short_U = U_test[:len(short_t)]
             
             print(f"    Testing short simulation ({len(short_t)} steps)...")
