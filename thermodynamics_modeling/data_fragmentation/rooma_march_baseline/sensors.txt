@@ -1,0 +1,7 @@
+RoomA:Sensor__room_temperature
+Outdoor:Temperature_air
+Outdoor:Solar__direct_radiation__south_façade
+RoomA:Sensor__CO2
+RoomA:People__amount
+Ventilation:Sensor__air_temperature__supply
+
