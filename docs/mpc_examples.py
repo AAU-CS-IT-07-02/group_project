@@ -139,7 +139,7 @@ import matplotlib.pyplot as plt
 plt.ion()
 from matplotlib import rcParams
 rcParams['text.usetex'] = True
-# rcParams['text.latex.preamble'] = [r'\\usepackage{amsmath}',r'\\usepackage{siunitx}']
+#rcParams['text.latex.preamble'] = [r'\\usepackage{amsmath}',r'\\usepackage{siunitx}']
 rcParams['axes.grid'] = True
 rcParams['lines.linewidth'] = 2.0
 rcParams['axes.labelsize'] = 'xx-large'
@@ -162,13 +162,13 @@ for g in [sim_graphics,mpc_graphics]:
     # Plot the control input on axis 5:
     g.add_line(var_type='_u', var_name='inp', axis=ax[4], color='#1f77b4')
 
-
+"""
 ax[0].set_ylabel(r'$X_s~[\si[per-mode=fraction]{\mole\per\litre}]$')
 ax[1].set_ylabel(r'$S_s~[\si[per-mode=fraction]{\mole\per\litre}]$')
 ax[2].set_ylabel(r'$P_s~[\si[per-mode=fraction]{\mole\per\litre}]$')
 ax[3].set_ylabel(r'$V_s~[\si[per-mode=fraction]{\mole\per\litre}]$')
 ax[4].set_ylabel(r'$u_{\text{inp}}~[\si[per-mode=fraction]{\cubic\metre\per\minute}]$')
-ax[4].set_xlabel(r'$t~[\si[per-mode=fraction]{\minute}]$')
+ax[4].set_xlabel(r'$t~[\si[per-mode=fraction]{\minute}]$')"""
 
 n_steps = 10
 for k in range(n_steps):
@@ -178,14 +178,22 @@ for k in range(n_steps):
 plt.show()
 from matplotlib.animation import FuncAnimation, PillowWriter, FFMpegWriter
 
+make_animation = True
+
 # The function describing the gif:
 def update(t_ind):
     sim_graphics.plot_results(t_ind)
     mpc_graphics.plot_predictions(t_ind)
     mpc_graphics.reset_axes()
 
-if False:
-    # Change this into a flag
+if make_animation:
+    # Turn off interactive mode before saving animation
+    plt.ioff()
+
+    # Create animation
     anim = FuncAnimation(fig, update, frames=n_steps, repeat=False)
-    gif_writer = FFMpegWriter(fps=10)
-    anim.save('anim_batch_reactor_final.gif', writer=gif_writer)
+
+    writer = PillowWriter(fps=10)
+    anim.save('anim_batch_reactor_final.gif', writer=writer)
+    print("Animation saved as GIF.")
+    plt.close(fig)
