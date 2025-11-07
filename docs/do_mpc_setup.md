@@ -22,3 +22,6 @@ You can install all the necessary packages using the provided `requirements.txt`
 
 ![gif](Images/anim.gif)
 
+## Example of doMPC with Lorenz actractor
+::: do_MPC.hello_mpc
+
