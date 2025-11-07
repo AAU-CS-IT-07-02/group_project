@@ -15,6 +15,12 @@ time is shape: (50,)
 # TODO:
 - Rethink the state space + observations
 """
+
+"""
+Command reference:
+python dynamic_model_smart_building.py --sensors ../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_sensors.csv --actuators ../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_actuators.csv --configuration ../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_configuration.csv
+"""
+
 """
 Dynamic Modeling of Smart Building Systems using Sparse Identification of Nonlinear Dynamics.
 
@@ -173,9 +179,9 @@ def start_monitoring(interval_seconds: int):
     thread.start()
     return thread
 
-def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False, drop_timestamps: bool = True) -> np.ndarray:
+def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False, drop_timestamps: bool = True) -> tuple:
     """
-    Load a CSV file into a NumPy array.
+    Load a CSV file into a NumPy array and return column names.
 
     Parameters:
     ----------
@@ -185,15 +191,20 @@ def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False
         Column separator (default is ',').
     skip_header : bool, optional
         If True, skip the header row (default is False).
+    drop_timestamps : bool, optional
+        If True, drop the first column (assumed to be timestamps).
 
     Returns:
     ------
-    np.ndarray
-        Data from the CSV as a NumPy array.
+    tuple
+        (data, column_names) where data is NumPy array and column_names is list of strings.
     """
     # Read CSV using pandas for flexibility
     df = pd.read_csv(file_path, sep=delimiter, encoding='utf-8-sig', engine='python')
 
+    # Get column names
+    column_names = df.columns.tolist()
+    
     # Optionally drop header row
     if skip_header:
         data = df.to_numpy()
@@ -205,8 +216,9 @@ def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False
         # TODO: think about a better way to identify timestamp columns
         # Assume first column is timestamp, drop it
         data = data[:, 1:]
+        column_names = column_names[1:]  # Also drop timestamp column name
 
-    return data
+    return data, column_names
 
 def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: np.ndarray, 
                                     configuration_data: np.ndarray, interpolation_method: str = "linear") -> tuple:
@@ -495,14 +507,14 @@ def main():
     
     # Load data
     print("Loading data...")
-    sensors_df = get_csv_data(args.sensors, args.sep)
-    actuators_df = get_csv_data(args.actuators, args.sep)
-    configuration_df = get_csv_data(args.configuration, args.sep)
+    sensors_df, sensors_columns = get_csv_data(args.sensors, args.sep)
+    actuators_df, actuators_columns = get_csv_data(args.actuators, args.sep)
+    configuration_df, configuration_columns = get_csv_data(args.configuration, args.sep)
     
     print(f"Loaded:")
-    print(f"  Sensors: {sensors_df.shape}")
-    print(f"  Actuators: {actuators_df.shape}")
-    print(f"  Configuration: {configuration_df.shape}")
+    print(f"  Sensors: {sensors_df.shape} - {sensors_columns}")
+    print(f"  Actuators: {actuators_df.shape} - {actuators_columns}")
+    print(f"  Configuration: {configuration_df.shape} - {configuration_columns}")
     
     # Convert to float (this may introduce NaN for invalid values)
     sensors_data = sensors_df.astype(float)
@@ -528,16 +540,26 @@ def main():
     else:
         print(f"No downsampling applied (using full dataset)")
     
-    # Combine data based on configuration
+    # Combine data based on configuration and create feature names
     if args.include_configuration:
         X = np.hstack([sensors_data, configuration_data])
+        state_names = sensors_columns + configuration_columns
         print(f"\nUsing sensors + configuration as state variables")
+        print(f"  State variables (X): {state_names}")
     else:
         X = sensors_data
+        state_names = sensors_columns
         print(f"\nUsing sensors only as state variables")
+        print(f"  State variables (X): {state_names}")
     
     # Use actuators as control inputs (U)
     U = actuators_data
+    control_names = actuators_columns
+    print(f"  Control inputs (U): {control_names}")
+    
+    # Create combined feature names for PySINDy (state variables + control inputs)
+    feature_names = state_names + control_names
+    print(f"  Combined feature names for SINDy: {len(feature_names)} total variables")
     
     # Optionally normalize data
     if args.normalize_data:
@@ -569,8 +591,9 @@ def main():
         optimizer=optimizer
     )
     
-    # Train the model
-    model.fit(X, u=U, t=args.dt)
+    # Train the model with custom variable names
+    # Pass both state and control variable names to PySINDy
+    model.fit(X, u=U, t=args.dt, feature_names=feature_names)
     
     # Check model stability
     coeffs = model.coefficients()
@@ -616,7 +639,7 @@ def main():
         
         # Retrain on training data only
         retrain_start = time.time()
-        model.fit(X_train, u=U_train, t=args.dt)
+        model.fit(X_train, u=U_train, t=args.dt, feature_names=feature_names)
         retrain_time = time.time() - retrain_start
         print(f"  Retraining time: {retrain_time:.2f}s")
         
