@@ -1,5 +1,6 @@
 
 """
+# Notes
 Observation arrays follow the following axis conventions: (spatial_1, ..., spatial_n, time, coordinate). For ODEs (no spatial dependence), that means the first axis is time, the second axis is coordinate. pysindy also requires the timepoints of the observations. 
 While there are several ways to pass this information, the most straightfowrads is a 1-D array of timepoints.
 
@@ -10,7 +11,10 @@ print(f"time is shape: {t.shape}")
 Data is shape: (50, 2)
 time is shape: (50,)
 """
-
+"""
+# TODO:
+- Rethink the state space + observations
+"""
 """
 Dynamic Modeling of Smart Building Systems using Sparse Identification of Nonlinear Dynamics.
 
