@@ -253,11 +253,22 @@ def main():
             # Map normalized columns to original cased columns
             original_by_norm = { (c if case_sensitive else c.lower()): c for c in all_cols }
             
-            for col_norm, col_orig in original_by_norm.items():
-                for room_name in room_names:
-                    if room_name in col_norm:  # This is the "contains" logic
-                        filtered_cols.add(col_orig)
-                        break # Column matched, no need to check other room names
+            # Compile regex for selected rooms
+            room_patterns = [
+                re.compile(rf"^{re.escape(room)}", flags=0 if case_sensitive else re.IGNORECASE)
+                for room in room_names
+            ]
+
+            for col in original_by_norm:
+                col_check = col if case_sensitive else col.lower()
+                is_room_col = re.match(r"^Room[A-Z]", col_check) if case_sensitive else re.match(r"^room[a-z]", col_check)
+                if is_room_col:
+                    # Keep only if it matches one of the selected rooms
+                    if any(p.match(col_check) for p in room_patterns):
+                        filtered_cols.add(col)
+                else:
+                    # Keep non-room-specific columns
+                    filtered_cols.add(col)
             
             original_col_count = len(all_cols)
             all_cols = sorted(list(filtered_cols))  # This FILTERS all_cols

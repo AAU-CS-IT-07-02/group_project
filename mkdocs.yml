@@ -19,5 +19,6 @@ nav:
   - Engineering Document: literature_review/PROJECT_DOCUMENT.md
   - Database Extraction: db_extraction.md 
   - Database Augmentation: db_augmentation.md 
-  - Thermodynamics Modeling: thermodynamics_modeling.md 
+  - Thermodynamics Modeling: thermodynamics_modeling.md
+  - MPC: do_mpc_setup.md
   - Slurm pipeline: slurm_pipeline.md 
