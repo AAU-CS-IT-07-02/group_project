@@ -41,111 +41,12 @@ Project: Intelligent Building Management System through Data-Driven Thermodynami
 """
 
 import time
-import threading
-import psutil
 
 # Import our modular components
 from config import parse_args, validate_config
 from data_processing import load_and_process_data
 from sindy_modeling import build_and_validate_model
-
-
-def log_system_usage():
-    """Log current CPU and RAM usage."""
-    cpu = psutil.cpu_percent()
-    memory = psutil.virtual_memory()
-    print(f"[MONITOR] CPU: {cpu:.1f}% | RAM: {memory.percent:.1f}% ({memory.used/1024**3:.1f}GB/{memory.total/1024**3:.1f}GB)")
-
-
-def start_monitoring(interval_seconds: int):
-    """Start background monitoring thread."""
-    if interval_seconds <= 0:
-        return None
-    
-    def monitor():
-        while True:
-            time.sleep(interval_seconds)
-            log_system_usage()
-    
-    thread = threading.Thread(target=monitor, daemon=True)
-    thread.start()
-    return thread
-
-
-def print_job_configuration(args):
-    """Print comprehensive parameter summary for cluster data collection."""
-    print("="*80)
-    print("PYSINDY BUILDING DYNAMICS MODELING - JOB CONFIGURATION")
-    print("="*80)
-    print(f"Data Files:")
-    print(f"  Sensors:       {args.sensors}")
-    print(f"  Actuators:     {args.actuators}")
-    print(f"  Configuration: {args.configuration}")
-    print(f"  CSV Separator: {args.sep}")
-    print(f"")
-    print(f"Data Processing:")
-    print(f"  Interpolation Method:  {args.interpolation_method}")
-    print(f"  Include Configuration: {args.include_configuration}")
-    print(f"  Sampling Rate:         {args.sampling_rate} ({'no downsampling' if args.sampling_rate <= 1 else f'{args.sampling_rate}x speedup'})")
-    print(f"  Normalize Data:        {args.normalize_data}")
-    print(f"  Normalization Method:  {args.normalization_method}")
-    print(f"  Time Step (dt):        {args.dt}")
-    print(f"")
-    print(f"SINDy Model Configuration:")
-    print(f"  Feature Library:       {args.feature_library}")
-    print(f"  Polynomial Degree:     {args.polynomial_degree}")
-    print(f"  Fourier Frequencies:   {args.fourier_n_frequencies}")
-    print(f"  Include Interactions:  {not args.no_interactions}")
-    print(f"  Optimizer:             {args.optimizer}")
-    print(f"  Sparsity Threshold:    {args.threshold}")
-    print(f"  Regularization Alpha:  {args.alpha}")
-    print(f"  Max Iterations:        {args.max_iter}")
-    print(f"  Normalize Columns:     {args.normalize_columns}")
-    print(f"  Lasso Alpha:           {args.lasso_alpha}")
-    print(f"")
-    print(f"Training/Validation:")
-    print(f"  Train Split:           {args.train_split}")
-    print(f"  Skip Validation:       {args.skip_validation}")
-    print(f"  Skip Visualization:    {args.skip_visualization}")
-    print(f"")
-    print(f"System:")
-    print(f"  Monitor Interval:      {args.monitor_interval}s")
-    print(f"  Output Directory:      {args.outdir}")
-    print("="*80)
-    print("")
-
-
-def print_job_summary(args, total_duration: float, results: dict):
-    """Print parseable summary for cluster data collection."""
-    hours = int(total_duration // 3600)
-    minutes = int((total_duration % 3600) // 60)
-    seconds = total_duration % 60
-    
-    # Print parseable summary for cluster data collection
-    print("")
-    print("CLUSTER_DATA_SUMMARY_START")
-    print(f"SAMPLING_RATE={args.sampling_rate}")
-    print(f"POLYNOMIAL_DEGREE={args.polynomial_degree}")
-    print(f"THRESHOLD={args.threshold}")
-    print(f"NORMALIZE_DATA={args.normalize_data}")
-    print(f"FEATURE_LIBRARY={args.feature_library}")
-    print(f"OPTIMIZER={args.optimizer}")
-    print(f"INTERPOLATION_METHOD={args.interpolation_method}")
-    print(f"TOTAL_DURATION_SECONDS={total_duration:.2f}")
-    print(f"SPEEDUP_FACTOR={args.sampling_rate}")
-    print(f"SKIP_VALIDATION={args.skip_validation}")
-    print(f"MODEL_STABLE={results.get('stable', False)}")
-    print(f"VALIDATION_RMSE={results.get('rmse', 'N/A')}")
-    print("CLUSTER_DATA_SUMMARY_END")
-    
-    print("")
-    print("="*80)
-    print("JOB COMPLETED - TIMING SUMMARY")
-    print("="*80)
-    print(f"Total Duration: {hours:02d}h {minutes:02d}m {seconds:05.2f}s ({total_duration:.2f}s total)")
-    print(f"Start Time:     {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time() - total_duration))}")
-    print(f"End Time:       {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}")
-    print("="*80)
+from utils import start_monitoring, print_job_configuration, print_job_summary, create_results_dict
 
 
 def main():
