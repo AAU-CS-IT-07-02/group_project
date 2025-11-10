@@ -10,15 +10,15 @@ XGBoost, LightGBM, CatBoost, spaCy, Optuna, Hyperopt, Ray and a few more
 Here is the list of possible alternative methods, drawing inspiration
 from a paper on Energy Efficiency Smart Buildings Models[^1]:
 
--   Multi-Layer Perceptron (MLP)
+-   Multi-Layer Perceptron (MLP) (on PyCaret we could use create_model('mlp') for example)
 
--   Support Vector Machines with Radial Basis Function Kernel (SVM)
+-   Support Vector Machines with Radial Basis Function Kernel (SVM) ('svm')
 
--   Gaussian Process with Radial Basis Function Kernel (Gauss)
+-   Gaussian Process with Radial Basis Function Kernel (Gauss) ('gaussian_process')
 
--   Bayesian Regularized Neural Networks (BRNN)
+-   Bayesian Regularized Neural Networks (BRNN) (it doesn't exist)
 
--   Random forest (RF)
+-   Random forest (RF) ('rf')
 
 From these methods, one must be chosen. Experiments must be conducted to
 draw conclusions.
