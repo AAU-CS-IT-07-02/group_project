@@ -4,10 +4,11 @@ Configuration Management for Dynamic Building Modeling
 This module handles all configuration-related functionality including:
 - Command-line argument parsing
 - Future: YAML configuration file loading    # Feature library options
-    p.add_argument("--feature-library", default="polynomial", choices=["polynomial", "fourier", "identity"], 
+    p.add_argument("--feature-library", default="polynomial", 
+                   choices=["polynomial", "fourier", "identity", "custom", "pde", "weakpde", "parameterized"], 
                    help="Type of feature library to use (single library mode)")
     p.add_argument("--feature-libraries", nargs='+', default=None,
-                   help="List of feature libraries to combine (e.g., polynomial fourier identity)")
+                   help="List of feature libraries to combine (e.g., polynomial fourier identity custom pde)")
     p.add_argument("--library-combination-strategy", default="concat", 
                    choices=["concat", "tensored", "generalized"],
                    help="Strategy to combine multiple feature libraries")
@@ -215,10 +216,11 @@ def _add_all_arguments(parser: argparse.ArgumentParser) -> None:
                    help="Data normalization method")
     
     # Feature library options
-    parser.add_argument("--feature-library", default="polynomial", choices=["polynomial", "fourier", "identity"], 
+    parser.add_argument("--feature-library", default="polynomial", 
+                   choices=["polynomial", "fourier", "identity", "custom", "pde", "weakpde", "parameterized"], 
                    help="Type of feature library to use (single library mode)")
     parser.add_argument("--feature-libraries", nargs='+', default=None,
-                   help="List of feature libraries to combine (e.g., polynomial fourier identity)")
+                   help="List of feature libraries to combine (e.g., polynomial fourier identity custom pde)")
     parser.add_argument("--library-combination-strategy", default="concat", 
                    choices=["concat", "tensored", "generalized"],
                    help="Strategy to combine multiple feature libraries")

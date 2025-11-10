@@ -57,8 +57,34 @@ def create_single_library(library_type: str, parameters: dict = None):
         function_names = parameters.get('function_names', ['x'])
         return ps.CustomLibrary(library_functions=functions, function_names=function_names)
     elif library_type == "pde":
-        # For future extension - PDE libraries
-        return ps.PDELibrary()
+        # TODO: revisit this and make sure it works with the PDE optimizer
+        # PDE library for partial differential equations
+        library_functions = parameters.get('library_functions', None)
+        derivative_order = parameters.get('derivative_order', 0)
+        spatial_grid = parameters.get('spatial_grid', None)
+        if library_functions is not None:
+            return ps.PDELibrary(library_functions=library_functions, 
+                               derivative_order=derivative_order,
+                               spatial_grid=spatial_grid)
+        else:
+            return ps.PDELibrary()
+    elif library_type == "weakpde":
+        # Weak PDE library for weak formulation problems
+        library_functions = parameters.get('library_functions', None)
+        derivative_order = parameters.get('derivative_order', 0)
+        spatiotemporal_grid = parameters.get('spatiotemporal_grid', None)
+        if library_functions is not None:
+            return ps.WeakPDELibrary(library_functions=library_functions,
+                                   derivative_order=derivative_order,
+                                   spatiotemporal_grid=spatiotemporal_grid)
+        else:
+            return ps.WeakPDELibrary()
+    elif library_type == "parameterized":
+        # Parameterized library - tensor product with different inputs
+        libraries = parameters.get('libraries', [ps.PolynomialLibrary(), ps.PolynomialLibrary()])
+        library_ensemble = parameters.get('library_ensemble', False)
+        return ps.ParameterizedLibrary(libraries[0], libraries[1], 
+                                     library_ensemble=library_ensemble)
     else:
         raise ValueError(f"Unknown feature library type: {library_type}")
 
