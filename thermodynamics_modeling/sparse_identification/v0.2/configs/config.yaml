@@ -1,0 +1,68 @@
+# SINDy Building Dynamics Modeling Configuration
+# This configuration file corresponds to the command:
+# python main.py --sensors ../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_sensors.csv --actuators ../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_actuators.csv --configuration ../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_configuration.csv
+
+# Data file paths
+sensors: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_sensors.csv"
+actuators: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_actuators.csv"
+configuration: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_configuration.csv"
+outdir: "out"
+sep: null  # Auto-detect CSV delimiter
+
+# Data processing parameters
+interpolation_method: "linear"  # Options: linear, time, index, nearest, zero, slinear, quadratic, cubic
+include_configuration: false    # Include configuration variables in state vector
+dt: 5.0                        # Time step between measurements (minutes)
+
+# SINDy model hyperparameters
+polynomial_degree: 2           # Degree of polynomial features
+threshold: 0.1                 # Sparsity threshold for STLSQ optimizer
+alpha: 0.0                     # Regularization parameter
+max_iter: 20                   # Maximum iterations for optimizer
+normalize_columns: false       # Normalize feature matrix columns
+coefficient_threshold: 1000.0  # Maximum allowed coefficient magnitude
+
+# Training/validation settings
+train_split: 0.7               # Fraction for training (rest for validation)
+skip_validation: false         # Skip validation step
+skip_visualization: false      # Skip plotting and visualization
+validation_subsample: 1        # Subsample validation data (1=full, 10=every 10th)
+simulation_timeout: 60         # Maximum simulation time (seconds)
+
+# Data normalization options
+normalize_data: false          # Normalize data before training
+normalization_method: "minmax" # Options: minmax, standard, robust
+
+# Feature library options
+feature_library: "polynomial"  # Options: polynomial, fourier, identity
+fourier_n_frequencies: 2       # Number of frequencies for Fourier library
+no_interactions: false         # Disable interaction terms
+
+# Optimizer options
+optimizer: "stlsq"            # Options: stlsq, lasso, ridge
+lasso_alpha: 0.01             # Alpha parameter for Lasso optimizer
+
+# System monitoring
+monitor_interval: 20          # System usage logging interval (seconds, 0=disable)
+
+# Performance optimization
+sampling_rate: 1              # Downsample data (1=no sampling, 10=10x speedup)
+
+# Example configurations for different scenarios:
+# 
+# High accuracy (slower):
+# polynomial_degree: 3
+# threshold: 0.01
+# sampling_rate: 1
+# 
+# Fast prototyping:
+# polynomial_degree: 2
+# threshold: 0.2
+# sampling_rate: 10
+# skip_visualization: true
+#
+# Robust modeling:
+# normalize_data: true
+# normalization_method: "robust"
+# optimizer: "lasso"
+# lasso_alpha: 0.05

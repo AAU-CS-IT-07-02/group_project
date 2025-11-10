@@ -100,19 +100,16 @@ def create_optimizer(optimizer_type: str, threshold: float = 0.1, alpha: float =
         raise ValueError(f"Unknown optimizer type: {optimizer_type}")
 
 
-def build_sindy_model(X: np.ndarray, U: np.ndarray, args: argparse.Namespace) -> ps.SINDy:
+def build_model(args: argparse.Namespace) -> ps.SINDy:
     """
-    Build and train a SINDy model for building dynamics.
+    Build a SINDy model architecture without training.
     
     Parameters:
-        X: State variables (sensor measurements)
-        U: Control inputs (actuator commands)
         args: Configuration namespace with model parameters
         
     Returns:
-        ps.SINDy: Trained SINDy model
+        ps.SINDy: Untrained SINDy model ready for fitting
     """
-    # Create feature library and optimizer
     feature_library = create_feature_library(
         args.feature_library, 
         args.polynomial_degree, 
@@ -129,8 +126,7 @@ def build_sindy_model(X: np.ndarray, U: np.ndarray, args: argparse.Namespace) ->
         args.lasso_alpha
     )
     
-    # Build SINDy model
-    print(f"\nTraining SINDy model...")
+    print(f"\nBuilding SINDy model architecture...")
     print(f"  Feature library: {args.feature_library} (degree={args.polynomial_degree})")
     print(f"  Optimizer: {args.optimizer} (threshold={args.threshold})")
     
@@ -139,8 +135,31 @@ def build_sindy_model(X: np.ndarray, U: np.ndarray, args: argparse.Namespace) ->
         optimizer=optimizer
     )
     
-    # Train the model
+    return model
+
+
+def fit_model(model: ps.SINDy, X: np.ndarray, U: np.ndarray, args: argparse.Namespace) -> ps.SINDy:
+    """
+    Fit/train the SINDy model on the provided data.
+    
+    Parameters:
+        model: Untrained SINDy model
+        X: State variables (sensor measurements)
+        U: Control inputs (actuator commands)
+        args: Configuration namespace with model parameters
+        
+    Returns:
+        ps.SINDy: Trained SINDy model
+    """
+    print(f"\nFitting SINDy model to data...")
+    print(f"  Training data shape: X={X.shape}, U={U.shape}")
+    print(f"  Time step: {args.dt}")
+    
+    fit_start = time.time()
     model.fit(X, u=U, t=args.dt)
+    fit_time = time.time() - fit_start
+    
+    print(f"  Model fitting completed in {fit_time:.2f}s")
     
     return model
 
@@ -360,22 +379,20 @@ def create_validation_plots(X_test: np.ndarray, X_pred: np.ndarray, rmse: float,
     print(f"Error analysis plot saved to: {error_filename}")
 
 
-def build_and_validate_model(X: np.ndarray, U: np.ndarray, t: np.ndarray, args: argparse.Namespace) -> Tuple[ps.SINDy, dict]:
+def validate_model_pipeline(model: ps.SINDy, X: np.ndarray, U: np.ndarray, t: np.ndarray, args: argparse.Namespace) -> dict:
     """
-    Complete SINDy model building and validation pipeline.
+    Complete model validation pipeline including stability checks and temporal validation.
     
     Parameters:
-        X: State variables
-        U: Control inputs  
-        t: Time vector
+        model: Trained SINDy model
+        X: Full state variables dataset
+        U: Full control inputs dataset  
+        t: Full time vector
         args: Configuration namespace
         
     Returns:
-        tuple: (model, results) where results contains validation metrics
+        dict: Validation results containing stability, RMSE, and predictions
     """
-    # Build and train model
-    model = build_sindy_model(X, U, args)
-    
     # Check model stability
     is_stable = check_model_stability(model, args.coefficient_threshold)
     
@@ -401,7 +418,7 @@ def build_and_validate_model(X: np.ndarray, U: np.ndarray, t: np.ndarray, args: 
             X, U, t, args.train_split
         )
         
-        # Validate model
+        # Validate model with simulation
         rmse, X_pred = validate_model(model, X_train, X_test, U_train, U_test, t_test, args)
         
         # Create validation plots
@@ -414,4 +431,4 @@ def build_and_validate_model(X: np.ndarray, U: np.ndarray, t: np.ndarray, args: 
         validation_total = time.time() - validation_start
         print(f"Total validation time: {validation_total:.2f}s")
     
-    return model, results
+    return results

@@ -42,10 +42,9 @@ Project: Intelligent Building Management System through Data-Driven Thermodynami
 
 import time
 
-# Import our modular components
-from config import parse_args, validate_config
+from config import parse_args
 from data_processing import load_and_process_data
-from sindy_modeling import build_and_validate_model
+from sindy_modeling import build_model, fit_model, validate_model_pipeline
 from utils import start_monitoring, print_job_configuration, print_job_summary, create_results_dict
 
 
@@ -56,9 +55,10 @@ def main():
     This function coordinates the complete pipeline:
     1. Parse and validate configuration arguments
     2. Load and preprocess building sensor/actuator data
-    3. Build and train SINDy model to discover governing equations
-    4. Validate model performance using temporal simulation
-    5. Generate analysis plots and performance reports
+    3. Build SINDy model architecture (feature library + optimizer)
+    4. Fit model to training data to discover governing equations
+    5. Validate model performance using temporal simulation
+    6. Generate analysis plots and performance reports
     
     The workflow is designed for both interactive use and cluster-based 
     experimentation with comprehensive logging and error handling.
@@ -79,27 +79,21 @@ def main():
             --sampling-rate 10
         ```
     """
-    # Record start time for job duration tracking
     start_time = time.time()
     
     try:
-        # Parse and validate configuration
         args = parse_args()
-        args = validate_config(args)
         
-        # Print comprehensive parameter summary
         print_job_configuration(args)
-        
-        # Start system resource monitoring
         start_monitoring(args.monitor_interval)
         
-        # Load and preprocess data
         X, U, t, scalers = load_and_process_data(args)
         
-        # Build and validate SINDy model
-        model, results = build_and_validate_model(X, U, t, args)
+        model = build_model(args)
+        trained_model = fit_model(model, X, U, args)
         
-        # Calculate and print job completion summary
+        results = validate_model_pipeline(trained_model, X, U, t, args)
+        
         end_time = time.time()
         total_duration = end_time - start_time
         print_job_summary(args, total_duration, results)
