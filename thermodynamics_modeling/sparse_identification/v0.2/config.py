@@ -3,8 +3,20 @@ Configuration Management for Dynamic Building Modeling
 
 This module handles all configuration-related functionality including:
 - Command-line argument parsing
-- Future: YAML configuration file loading
-- Configuration validation and merging
+- Future: YAML configuration file loading    # Feature library options
+    p.add_argument("--feature-library", default="polynomial", choices=["polynomial", "fourier", "identity"], 
+                   help="Type of feature library to use (single library mode)")
+    p.add_argument("--feature-libraries", nargs='+', default=None,
+                   help="List of feature libraries to combine (e.g., polynomial fourier identity)")
+    p.add_argument("--library-combination-strategy", default="concat", 
+                   choices=["concat", "tensored", "generalized"],
+                   help="Strategy to combine multiple feature libraries")
+    p.add_argument("--fourier-n-frequencies", type=int, default=2, 
+                   help="Number of frequencies for Fourier library")
+    p.add_argument("--no-interactions", action="store_true", 
+                   help="Disable interaction terms in feature library (default: include interactions)")
+    p.add_argument("--library-parameters", default=None,
+                   help="JSON string with per-library parameters (e.g., '{\"polynomial\": {\"degree\": 3}, \"fourier\": {\"n_frequencies\": 5}}')")iguration validation and merging
 
 Authors: AAU CS Master's Team (Group Project 2025)
 Project: Intelligent Building Management System through Data-Driven Thermodynamics Modeling
@@ -204,11 +216,18 @@ def _add_all_arguments(parser: argparse.ArgumentParser) -> None:
     
     # Feature library options
     parser.add_argument("--feature-library", default="polynomial", choices=["polynomial", "fourier", "identity"], 
-                   help="Type of feature library to use")
+                   help="Type of feature library to use (single library mode)")
+    parser.add_argument("--feature-libraries", nargs='+', default=None,
+                   help="List of feature libraries to combine (e.g., polynomial fourier identity)")
+    parser.add_argument("--library-combination-strategy", default="concat", 
+                   choices=["concat", "tensored", "generalized"],
+                   help="Strategy to combine multiple feature libraries")
     parser.add_argument("--fourier-n-frequencies", type=int, default=2, 
                    help="Number of frequencies for Fourier library")
     parser.add_argument("--no-interactions", action="store_true", 
                    help="Disable interaction terms in feature library (default: include interactions)")
+    parser.add_argument("--library-parameters", default=None,
+                   help="JSON string with per-library parameters (e.g., '{\"polynomial\": {\"degree\": 3}, \"fourier\": {\"n_frequencies\": 5}}')")
     
     # Optimizer options
     parser.add_argument("--optimizer", default="stlsq", choices=["stlsq", "lasso", "ridge"], 

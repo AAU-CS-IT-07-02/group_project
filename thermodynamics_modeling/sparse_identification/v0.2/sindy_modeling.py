@@ -26,36 +26,129 @@ import signal
 import os
 from typing import Tuple, Optional, Any
 
+from data_processing import prepare_training_data
 
-def create_feature_library(library_type: str, polynomial_degree: int = 2, fourier_n_frequencies: int = 2, include_interactions: bool = True):
+def create_single_library(library_type: str, parameters: dict = None):
+    """
+    Create a single PySINDy feature library with specified parameters.
+    
+    Parameters:
+        library_type: Type of library ('polynomial', 'fourier', 'identity', 'custom', 'pde')
+        parameters: Dictionary of library-specific parameters
+        
+    Returns:
+        PySINDy feature library object
+    """
+    if parameters is None:
+        parameters = {}
+        
+    if library_type == "polynomial":
+        degree = parameters.get('degree', 2)
+        include_interaction = parameters.get('include_interaction', True)
+        return ps.PolynomialLibrary(degree=degree, include_interaction=include_interaction)
+    elif library_type == "fourier":
+        n_frequencies = parameters.get('n_frequencies', 2)
+        return ps.FourierLibrary(n_frequencies=n_frequencies)
+    elif library_type == "identity":
+        return ps.IdentityLibrary()
+    elif library_type == "custom":
+        # For future extension - custom function libraries
+        functions = parameters.get('functions', [lambda x: x])
+        function_names = parameters.get('function_names', ['x'])
+        return ps.CustomLibrary(library_functions=functions, function_names=function_names)
+    elif library_type == "pde":
+        # For future extension - PDE libraries
+        return ps.PDELibrary()
+    else:
+        raise ValueError(f"Unknown feature library type: {library_type}")
+
+
+def create_feature_library(args):
     """
     Create a PySINDy feature library for building dynamics modeling.
     
-    Different feature libraries capture different aspects of building thermodynamics:
+    Supports both single and composite libraries:
+    - Single: One library type (polynomial, fourier, identity)
+    - Composite: Multiple libraries combined via concat/tensored/generalized strategies
+    
+    Different libraries capture different building thermodynamics aspects:
     - Polynomial: Nonlinear thermal relationships, heat transfer dependencies
     - Fourier: Daily/seasonal cycles, periodic occupancy patterns  
     - Identity: Linear relationships between variables
     
+    Combination strategies:
+    - Concat: Side-by-side feature concatenation
+    - Tensored: Multiplicative combinations (tensor products)
+    - Generalized: Flexible library organization
+    
     Parameters:
-        library_type: Type of feature library ('polynomial', 'fourier', 'identity')
-        polynomial_degree: Maximum polynomial degree for nonlinear features
-        fourier_n_frequencies: Number of frequency components for periodic patterns
-        include_interactions: Whether to include interaction terms between variables
+        args: Namespace containing library configuration
         
     Returns:
         PySINDy feature library object
-        
-    Raises:
-        ValueError: If unknown library_type is specified
     """
-    if library_type == "polynomial":
-        return ps.PolynomialLibrary(degree=polynomial_degree, include_interaction=include_interactions)
-    elif library_type == "fourier":
-        return ps.FourierLibrary(n_frequencies=fourier_n_frequencies)
-    elif library_type == "identity":
-        return ps.IdentityLibrary()
+    import json
+    
+    # Parse library-specific parameters
+    library_params = {}
+    if hasattr(args, 'library_parameters') and args.library_parameters:
+        if isinstance(args.library_parameters, dict):
+            # Already parsed (from YAML)
+            library_params = args.library_parameters
+        elif isinstance(args.library_parameters, str):
+            # JSON string (from CLI)
+            try:
+                library_params = json.loads(args.library_parameters)
+            except json.JSONDecodeError as e:
+                print(f"Warning: Invalid library_parameters JSON: {e}")
+                library_params = {}
+        else:
+            print(f"Warning: Invalid library_parameters type: {type(args.library_parameters)}")
+            library_params = {}
+    
+    # Check if using composite libraries
+    if hasattr(args, 'feature_libraries') and args.feature_libraries:
+        # Composite library mode
+        libraries = []
+        
+        for lib_type in args.feature_libraries:
+            # Get parameters for this specific library
+            lib_specific_params = library_params.get(lib_type, {})
+            
+            # Add global parameters as defaults
+            if lib_type == "polynomial":
+                lib_specific_params.setdefault('degree', getattr(args, 'polynomial_degree', 2))
+                lib_specific_params.setdefault('include_interaction', not getattr(args, 'no_interactions', False))
+            elif lib_type == "fourier":
+                lib_specific_params.setdefault('n_frequencies', getattr(args, 'fourier_n_frequencies', 2))
+            
+            libraries.append(create_single_library(lib_type, lib_specific_params))
+        
+        # Combine libraries based on strategy
+        combination_strategy = getattr(args, 'library_combination_strategy', 'concat')
+        
+        if combination_strategy == "concat":
+            return ps.ConcatLibrary(libraries)
+        elif combination_strategy == "tensored":
+            return ps.TensoredLibrary(libraries)
+        elif combination_strategy == "generalized":
+            return ps.GeneralizedLibrary(libraries)
+        else:
+            raise ValueError(f"Unknown combination strategy: {combination_strategy}")
+    
     else:
-        raise ValueError(f"Unknown feature library type: {library_type}")
+        # Single library mode (backward compatibility)
+        library_type = getattr(args, 'feature_library', 'polynomial')
+        single_params = library_params.get(library_type, {})
+        
+        # Add backward compatibility parameters
+        if library_type == "polynomial":
+            single_params.setdefault('degree', getattr(args, 'polynomial_degree', 2))
+            single_params.setdefault('include_interaction', not getattr(args, 'no_interactions', False))
+        elif library_type == "fourier":
+            single_params.setdefault('n_frequencies', getattr(args, 'fourier_n_frequencies', 2))
+        
+        return create_single_library(library_type, single_params)
 
 
 def create_optimizer(optimizer_type: str, threshold: float = 0.1, alpha: float = 0.0, 
@@ -110,12 +203,7 @@ def build_model(args: argparse.Namespace) -> ps.SINDy:
     Returns:
         ps.SINDy: Untrained SINDy model ready for fitting
     """
-    feature_library = create_feature_library(
-        args.feature_library, 
-        args.polynomial_degree, 
-        args.fourier_n_frequencies,
-        include_interactions=not args.no_interactions
-    )
+    feature_library = create_feature_library(args)
     
     optimizer = create_optimizer(
         args.optimizer, 
@@ -127,7 +215,15 @@ def build_model(args: argparse.Namespace) -> ps.SINDy:
     )
     
     print(f"\nBuilding SINDy model architecture...")
-    print(f"  Feature library: {args.feature_library} (degree={args.polynomial_degree})")
+    
+    # Display feature library configuration
+    if hasattr(args, 'feature_libraries') and args.feature_libraries:
+        print(f"  Feature libraries: {args.feature_libraries} (strategy: {getattr(args, 'library_combination_strategy', 'concat')})")
+        if hasattr(args, 'library_parameters') and args.library_parameters:
+            print(f"  Library parameters: {args.library_parameters}")
+    else:
+        print(f"  Feature library: {getattr(args, 'feature_library', 'polynomial')} (degree={getattr(args, 'polynomial_degree', 2)})")
+    
     print(f"  Optimizer: {args.optimizer} (threshold={args.threshold})")
     
     model = ps.SINDy(
@@ -409,7 +505,6 @@ def validate_model_pipeline(model: ps.SINDy, X: np.ndarray, U: np.ndarray, t: np
     
     # Optional validation step
     if not args.skip_validation:
-        from data_processing import prepare_training_data
         
         validation_start = time.time()
         

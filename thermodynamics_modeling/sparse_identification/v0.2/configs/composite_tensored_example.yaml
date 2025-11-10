@@ -1,0 +1,28 @@
+# Composite Library Example 2: Tensored Libraries
+# This creates multiplicative combinations between polynomial and fourier features
+# Good for: Capturing complex nonlinear-periodic interactions
+
+# Data file paths  
+sensors: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_sensors.csv"
+actuators: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_actuators.csv"
+configuration: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_configuration.csv"
+
+# Composite feature library setup
+feature_libraries: ["polynomial", "fourier", "identity"]
+library_combination_strategy: "tensored"  # Tensor products (multiplicative)
+
+# Per-library parameters (keep lower complexity for tensored products)
+library_parameters:
+  polynomial:
+    degree: 2
+    include_interaction: false  # Tensoring provides interactions
+  fourier:
+    n_frequencies: 2
+  # identity has no parameters
+
+# Training settings for tensored libraries
+threshold: 0.1             # Standard threshold
+train_split: 0.7
+normalize_data: true       # Important for tensored features
+coefficient_threshold: 500  # Lower for stability
+sampling_rate: 5           # Speed up for complex feature space
