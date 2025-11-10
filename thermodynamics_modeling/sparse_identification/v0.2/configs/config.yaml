@@ -1,4 +1,5 @@
-# SINDy Building Dynamics Modeling Configuration
+# SINDy Building Dynamics Modeling # Variable naming options
+named_variables: true          # Use actual CSV column names in SINDy equations instead of generic x0, x1, etc.nfiguration
 # This configuration file corresponds to the command:
 # python main.py --sensors ../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_sensors.csv --actuators ../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_actuators.csv --configuration ../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_configuration.csv
 
@@ -32,6 +33,9 @@ simulation_timeout: 60         # Maximum simulation time (seconds)
 # Data normalization options
 normalize_data: false          # Normalize data before training
 normalization_method: "minmax" # Options: minmax, standard, robust
+
+# Variable naming options
+named_variables: true         # Use actual CSV column names in SINDy equations instead of generic x0, x1, etc.
 
 # Feature library options (single library mode)
 feature_library: "polynomial"  # Options: polynomial, fourier, identity

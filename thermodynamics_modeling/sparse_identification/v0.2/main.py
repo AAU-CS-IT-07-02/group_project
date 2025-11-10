@@ -87,12 +87,12 @@ def main():
         print_job_configuration(args)
         start_monitoring(args.monitor_interval)
         
-        X, U, t, scalers = load_and_process_data(args)
+        X, U, t, scalers, feature_names = load_and_process_data(args)
         
         model = build_model(args)
-        trained_model = fit_model(model, X, U, args)
+        trained_model = fit_model(model, X, U, args, feature_names=feature_names)
         
-        results = validate_model_pipeline(trained_model, X, U, t, args)
+        results = validate_model_pipeline(trained_model, X, U, t, args, feature_names=feature_names)
         
         end_time = time.time()
         total_duration = end_time - start_time

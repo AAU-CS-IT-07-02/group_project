@@ -58,6 +58,7 @@ def create_single_library(library_type: str, parameters: dict = None):
         return ps.CustomLibrary(library_functions=functions, function_names=function_names)
     elif library_type == "pde":
         # TODO: revisit this and make sure it works with the PDE optimizer
+        # TODO: im sure PDELibrary needs way more parameters, make sure to trace them back to argparse and YAML
         # PDE library for partial differential equations
         library_functions = parameters.get('library_functions', None)
         derivative_order = parameters.get('derivative_order', 0)
@@ -260,7 +261,7 @@ def build_model(args: argparse.Namespace) -> ps.SINDy:
     return model
 
 
-def fit_model(model: ps.SINDy, X: np.ndarray, U: np.ndarray, args: argparse.Namespace) -> ps.SINDy:
+def fit_model(model: ps.SINDy, X: np.ndarray, U: np.ndarray, args: argparse.Namespace, feature_names: Optional[list] = None) -> ps.SINDy:
     """
     Fit/train the SINDy model on the provided data.
     
@@ -269,6 +270,7 @@ def fit_model(model: ps.SINDy, X: np.ndarray, U: np.ndarray, args: argparse.Name
         X: State variables (sensor measurements)
         U: Control inputs (actuator commands)
         args: Configuration namespace with model parameters
+        feature_names: Optional list of feature names for named variables in equations
         
     Returns:
         ps.SINDy: Trained SINDy model
@@ -276,9 +278,11 @@ def fit_model(model: ps.SINDy, X: np.ndarray, U: np.ndarray, args: argparse.Name
     print(f"\nFitting SINDy model to data...")
     print(f"  Training data shape: X={X.shape}, U={U.shape}")
     print(f"  Time step: {args.dt}")
+    if feature_names:
+        print(f"  Using named variables: {feature_names}")
     
     fit_start = time.time()
-    model.fit(X, u=U, t=args.dt)
+    model.fit(X, u=U, t=args.dt, feature_names=feature_names)
     fit_time = time.time() - fit_start
     
     print(f"  Model fitting completed in {fit_time:.2f}s")
@@ -318,7 +322,7 @@ def check_model_stability(model: ps.SINDy, coefficient_threshold: float = 1000.0
 
 def validate_model(model: ps.SINDy, X_train: np.ndarray, X_test: np.ndarray, 
                   U_train: np.ndarray, U_test: np.ndarray, t_test: np.ndarray, 
-                  args: argparse.Namespace) -> Tuple[float, Optional[np.ndarray]]:
+                  args: argparse.Namespace, feature_names: Optional[list] = None) -> Tuple[float, Optional[np.ndarray]]:
     """
     Validate SINDy model using temporal train/test split with simulation.
     
@@ -349,7 +353,7 @@ def validate_model(model: ps.SINDy, X_train: np.ndarray, X_test: np.ndarray,
     
     # Retrain on training data only
     retrain_start = time.time()
-    model.fit(X_train, u=U_train, t=args.dt)
+    model.fit(X_train, u=U_train, t=args.dt, feature_names=feature_names)
     retrain_time = time.time() - retrain_start
     print(f"  Retraining time: {retrain_time:.2f}s")
     
@@ -501,7 +505,7 @@ def create_validation_plots(X_test: np.ndarray, X_pred: np.ndarray, rmse: float,
     print(f"Error analysis plot saved to: {error_filename}")
 
 
-def validate_model_pipeline(model: ps.SINDy, X: np.ndarray, U: np.ndarray, t: np.ndarray, args: argparse.Namespace) -> dict:
+def validate_model_pipeline(model: ps.SINDy, X: np.ndarray, U: np.ndarray, t: np.ndarray, args: argparse.Namespace, feature_names: Optional[list] = None) -> dict:
     """
     Complete model validation pipeline including stability checks and temporal validation.
     
@@ -540,7 +544,7 @@ def validate_model_pipeline(model: ps.SINDy, X: np.ndarray, U: np.ndarray, t: np
         )
         
         # Validate model with simulation
-        rmse, X_pred = validate_model(model, X_train, X_test, U_train, U_test, t_test, args)
+        rmse, X_pred = validate_model(model, X_train, X_test, U_train, U_test, t_test, args, feature_names)
         
         # Create validation plots
         if X_pred is not None:

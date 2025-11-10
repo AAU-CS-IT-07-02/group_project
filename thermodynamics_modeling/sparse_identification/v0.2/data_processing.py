@@ -22,9 +22,9 @@ from typing import Tuple, Optional, Any
 import argparse
 
 
-def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False, drop_timestamps: bool = True) -> np.ndarray:
+def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False, drop_timestamps: bool = True, return_names: bool = False):
     """
-    Load a CSV file into a NumPy array.
+    Load a CSV file into a NumPy array, optionally returning column names.
 
     Parameters:
     ----------
@@ -36,14 +36,20 @@ def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False
         If True, skip the header row (default is False).
     drop_timestamps : bool, optional
         If True, drop the first column assuming it contains timestamps.
+    return_names : bool, optional
+        If True, return tuple (data, column_names), else return just data.
 
     Returns:
     ------
-    np.ndarray
-        Data from the CSV as a NumPy array.
+    np.ndarray or tuple
+        If return_names=False: Data from the CSV as a NumPy array.
+        If return_names=True: Tuple (data, column_names) where column_names is a list.
     """
     # Read CSV using pandas for flexibility
     df = pd.read_csv(file_path, sep=delimiter, encoding='utf-8-sig', engine='python')
+
+    # Get column names before any processing
+    column_names = list(df.columns)
 
     # Optionally drop header row
     if skip_header:
@@ -56,8 +62,11 @@ def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False
         # TODO: think about a better way to identify timestamp columns
         # Assume first column is timestamp, drop it
         data = data[:, 1:]
+        if return_names:
+            column_names = column_names[1:]
 
-    return data
+    
+    return data, column_names
 
 
 def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: np.ndarray, 
@@ -180,16 +189,18 @@ def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndar
     5. Combine data based on configuration (sensors only vs sensors+config)
     6. Normalize data for numerical stability (if requested)
     7. Create time vector for SINDy modeling
+    8. Extract column names if requested for named variables
     
     Parameters:
         args: Configuration namespace containing all processing parameters
         
     Returns:
-        tuple: (X, U, t, scalers)
+        tuple: (X, U, t, scalers, feature_names)
             - X: State variables (sensor measurements, optionally with configuration)
             - U: Control inputs (actuator commands)  
             - t: Time vector
             - scalers: Optional tuple of (X_scaler, U_scaler) if normalization was applied
+            - feature_names: Optional list of variable names for SINDy equations (if named_variables=True)
             
     The returned data is ready for SINDy model training and follows the format:
         X: (n_timesteps, n_state_variables)
@@ -198,10 +209,16 @@ def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndar
     """
     print("Loading data...")
     
-    # Load data from CSV files
-    sensors_df = get_csv_data(args.sensors, args.sep)
-    actuators_df = get_csv_data(args.actuators, args.sep)
-    configuration_df = get_csv_data(args.configuration, args.sep)
+    # Load data from CSV files, optionally extract column names
+    feature_names = None
+    if args.named_variables:
+        sensors_df, sensors_names = get_csv_data(args.sensors, args.sep, return_names=True)
+        actuators_df, actuators_names = get_csv_data(args.actuators, args.sep, return_names=True)
+        configuration_df, configuration_names = get_csv_data(args.configuration, args.sep, return_names=True)
+    else:
+        sensors_df = get_csv_data(args.sensors, args.sep)
+        actuators_df = get_csv_data(args.actuators, args.sep)
+        configuration_df = get_csv_data(args.configuration, args.sep)
     
     print(f"Loaded:")
     print(f"  Sensors: {sensors_df.shape}")
@@ -236,12 +253,28 @@ def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndar
     if args.include_configuration:
         X = np.hstack([sensors_data, configuration_data])
         print(f"\nUsing sensors + configuration as state variables")
+        # Combine feature names if named_variables is enabled
+        if args.named_variables:
+            # State variables (X) names: sensors + configuration
+            X_names = sensors_names + configuration_names
     else:
         X = sensors_data
         print(f"\nUsing sensors only as state variables")
+        # Use only sensor names if named_variables is enabled
+        if args.named_variables:
+            # State variables (X) names: sensors only
+            X_names = sensors_names
     
     # Use actuators as control inputs (U)
     U = actuators_data
+    
+    # Combine all feature names: state variables (X) + control inputs (U)
+    if args.named_variables:
+        feature_names = X_names + actuators_names
+        print(f"  State variable names (X): {X_names}")
+        print(f"  Control variable names (U): {actuators_names}")
+    else:
+        feature_names = None
     
     # Optionally normalize data
     scalers = None
@@ -258,8 +291,12 @@ def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndar
     print(f"  Controls U: {U.shape}")
     print(f"  Time points: {len(t)}")
     print(f"  dt: {args.dt}")
+    if args.named_variables and feature_names:
+        print(f"  Total feature names ({len(feature_names)}): {feature_names}")
+        print(f"    - State variables (X): {len(X_names)}")
+        print(f"    - Control variables (U): {len(actuators_names)}")
     
-    return X, U, t, scalers
+    return X, U, t, scalers, feature_names
 
 
 def prepare_training_data(X: np.ndarray, U: np.ndarray, t: np.ndarray, train_split: float = 0.7) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:

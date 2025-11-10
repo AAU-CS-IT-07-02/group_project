@@ -215,6 +215,10 @@ def _add_all_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--normalization-method", default="minmax", choices=["minmax", "standard", "robust"], 
                    help="Data normalization method")
     
+    # Variable render options
+    parser.add_argument("--named-variables", action="store_true", 
+                   help="Use actual CSV column names in SINDy equations instead of generic x0, x1, etc.")
+    
     # Feature library options
     parser.add_argument("--feature-library", default="polynomial", 
                    choices=["polynomial", "fourier", "identity", "custom", "pde", "weakpde", "parameterized"], 
