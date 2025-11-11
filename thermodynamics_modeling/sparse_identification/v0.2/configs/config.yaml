@@ -11,12 +11,12 @@ sep: null  # Auto-detect CSV delimiter
 
 # Data processing parameters
 interpolation_method: "linear"  # Options: linear, time, index, nearest, zero, slinear, quadratic, cubic
-include_configuration: false    # Include configuration variables in state vector
+include_configuration: true    # Include configuration variables in state vector
 dt: 5.0                        # Time step between measurements (minutes)
 
 # SINDy model hyperparameters
 polynomial_degree: 2           # Degree of polynomial features
-threshold: 0.01                 # Sparsity threshold for STLSQ optimizer
+threshold: 0.001                 # Sparsity threshold for STLSQ optimizer
 alpha: 0.05                     # Regularization parameter
 max_iter: 100                   # Maximum iterations for optimizer
 normalize_columns: false       # Normalize feature matrix columns
@@ -39,7 +39,7 @@ named_variables: true         # Use actual CSV column names in SINDy equations i
 # Feature library options (single library mode)
 feature_library: "polynomial"  # Options: polynomial, fourier, identity
 fourier_n_frequencies: 2       # Number of frequencies for Fourier library
-no_interactions: false         # Disable interaction terms
+no_interactions: true         # Disable interaction terms
 
 # Composite feature library options (advanced)
 # feature_libraries: ["polynomial", "fourier"]           # Combine multiple libraries
@@ -59,7 +59,7 @@ lasso_alpha: 0.01             # Alpha parameter for Lasso optimizer
 monitor_interval: 20          # System usage logging interval (seconds, 0=disable)
 
 # Performance optimization
-sampling_rate: 1              # Downsample data (1=no sampling, 10=10x speedup)
+sampling_rate: 10              # Downsample data (1=no sampling, 10=10x speedup)
 
 # Example configurations for different scenarios:
 # 

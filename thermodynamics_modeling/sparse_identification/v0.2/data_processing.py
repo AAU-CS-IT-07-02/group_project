@@ -50,7 +50,7 @@ def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False
 
     # Get column names before any processing
     column_names = list(df.columns)
-
+    data = []
     # Optionally drop header row
     if skip_header:
         data = df.to_numpy()
@@ -186,7 +186,7 @@ def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndar
     2. Convert to float and handle type conversion errors
     3. Interpolate missing values using specified method
     4. Downsample data for performance optimization (if requested)
-    5. Combine data based on configuration (sensors only vs sensors+config)
+    5. Combine data: sensors -> X, actuators+configuration -> U
     6. Normalize data for numerical stability (if requested)
     7. Create time vector for SINDy modeling
     8. Extract column names if requested for named variables
@@ -196,15 +196,15 @@ def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndar
         
     Returns:
         tuple: (X, U, t, scalers, feature_names)
-            - X: State variables (sensor measurements, optionally with configuration)
-            - U: Control inputs (actuator commands)  
+            - X: State variables (sensor measurements only)
+            - U: Control inputs (actuators + configuration combined)  
             - t: Time vector
             - scalers: Optional tuple of (X_scaler, U_scaler) if normalization was applied
             - feature_names: Optional list of variable names for SINDy equations (if named_variables=True)
             
     The returned data is ready for SINDy model training and follows the format:
-        X: (n_timesteps, n_state_variables)
-        U: (n_timesteps, n_control_inputs)
+        X: (n_timesteps, n_sensors)
+        U: (n_timesteps, n_actuators + n_configuration)
         t: (n_timesteps,)
     """
     print("Loading data...")
@@ -212,23 +212,23 @@ def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndar
     # Load data from CSV files, optionally extract column names
     feature_names = None
     if args.named_variables:
-        sensors_df, sensors_names = get_csv_data(args.sensors, args.sep, return_names=True)
-        actuators_df, actuators_names = get_csv_data(args.actuators, args.sep, return_names=True)
-        configuration_df, configuration_names = get_csv_data(args.configuration, args.sep, return_names=True)
+        sensors_data, sensors_names = get_csv_data(args.sensors, args.sep, return_names=True)
+        actuators_data, actuators_names = get_csv_data(args.actuators, args.sep, return_names=True)
+        configuration_data, configuration_names = get_csv_data(args.configuration, args.sep, return_names=True)
     else:
-        sensors_df = get_csv_data(args.sensors, args.sep)
-        actuators_df = get_csv_data(args.actuators, args.sep)
-        configuration_df = get_csv_data(args.configuration, args.sep)
+        sensors_data, _ = get_csv_data(args.sensors, args.sep, return_names=True)
+        actuators_data, _ = get_csv_data(args.actuators, args.sep, return_names=True)
+        configuration_data, _ = get_csv_data(args.configuration, args.sep, return_names=True)
     
     print(f"Loaded:")
-    print(f"  Sensors: {sensors_df.shape}")
-    print(f"  Actuators: {actuators_df.shape}")
-    print(f"  Configuration: {configuration_df.shape}")
+    print(f"  Sensors: {sensors_data.shape}")
+    print(f"  Actuators: {actuators_data.shape}")
+    print(f"  Configuration: {configuration_data.shape}")
     
     # Convert to float (this may introduce NaN for invalid values)
-    sensors_data = sensors_df.astype(float)
-    actuators_data = actuators_df.astype(float)
-    configuration_data = configuration_df.astype(float)
+    sensors_data = sensors_data.astype(float)
+    actuators_data = actuators_data.astype(float)
+    configuration_data = configuration_data.astype(float)
     
     # Interpolate missing values
     print(f"\nInterpolating missing values using {args.interpolation_method} method...")
@@ -249,30 +249,35 @@ def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndar
     else:
         print(f"No downsampling applied (using full dataset)")
     
-    # Combine data based on configuration
-    if args.include_configuration:
-        X = np.hstack([sensors_data, configuration_data])
-        print(f"\nUsing sensors + configuration as state variables")
-        # Combine feature names if named_variables is enabled
-        if args.named_variables:
-            # State variables (X) names: sensors + configuration
-            X_names = sensors_names + configuration_names
-    else:
-        X = sensors_data
-        print(f"\nUsing sensors only as state variables")
-        # Use only sensor names if named_variables is enabled
-        if args.named_variables:
-            # State variables (X) names: sensors only
-            X_names = sensors_names
+    # Organize data according to SINDy convention:
+    # X = state variables (sensors only)
+    # U = control inputs (actuators + configuration)
+    X = sensors_data
     
-    # Use actuators as control inputs (U)
-    U = actuators_data
+    if args.include_configuration:
+        U = np.hstack([actuators_data, configuration_data])
+        print(f"\nData organization:")
+        print(f"  X (state variables): sensors only")
+        print(f"  U (control inputs): actuators + configuration")
+        
+        # Combine control input names if named_variables is enabled
+        if args.named_variables:
+            U_names = actuators_names + configuration_names
+    else:
+        U = actuators_data
+        print(f"\nData organization:")
+        print(f"  X (state variables): sensors only")
+        print(f"  U (control inputs): actuators only")
+        
+        # Use only actuator names if named_variables is enabled
+        if args.named_variables:
+            U_names = actuators_names
     
     # Combine all feature names: state variables (X) + control inputs (U)
     if args.named_variables:
-        feature_names = X_names + actuators_names
-        print(f"  State variable names (X): {X_names}")
-        print(f"  Control variable names (U): {actuators_names}")
+        feature_names = sensors_names + U_names
+        print(f"  State variable names (X): {sensors_names}")
+        print(f"  Control variable names (U): {U_names}")
     else:
         feature_names = None
     
@@ -287,14 +292,14 @@ def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndar
     t = np.arange(len(X)) * args.dt
     
     print(f"\nFinal data prepared for SINDy:")
-    print(f"  States X: {X.shape}")
-    print(f"  Controls U: {U.shape}")
+    print(f"  States X: {X.shape} (sensors)")
+    print(f"  Controls U: {U.shape} (actuators{' + configuration' if args.include_configuration else ''})")
     print(f"  Time points: {len(t)}")
     print(f"  dt: {args.dt}")
     if args.named_variables and feature_names:
         print(f"  Total feature names ({len(feature_names)}): {feature_names}")
-        print(f"    - State variables (X): {len(X_names)}")
-        print(f"    - Control variables (U): {len(actuators_names)}")
+        print(f"    - State variables (X): {len(sensors_names)}")
+        print(f"    - Control variables (U): {len(U_names)}")
     
     return X, U, t, scalers, feature_names
 

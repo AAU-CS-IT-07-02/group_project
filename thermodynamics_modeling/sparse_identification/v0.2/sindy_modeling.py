@@ -28,7 +28,7 @@ from typing import Tuple, Optional, Any
 
 from data_processing import prepare_training_data
 
-def create_single_library(library_type: str, parameters: dict = None):
+def create_single_library(library_type: str, parameters: dict):
     """
     Create a single PySINDy feature library with specified parameters.
     
@@ -39,9 +39,7 @@ def create_single_library(library_type: str, parameters: dict = None):
     Returns:
         PySINDy feature library object
     """
-    if parameters is None:
-        parameters = {}
-        
+     
     if library_type == "polynomial":
         degree = parameters.get('degree', 2)
         include_interaction = parameters.get('include_interaction', True)
