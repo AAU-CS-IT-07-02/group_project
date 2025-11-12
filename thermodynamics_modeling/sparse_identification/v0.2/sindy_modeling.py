@@ -178,7 +178,7 @@ def create_feature_library(args):
         return create_single_library(library_type, single_params)
 
 
-def prepare_optimizer_kwargs(args: argparse.Namespace, optimizer_type: str) -> dict:
+def prepare_optimizer_kwargs(args: argparse.Namespace) -> dict:
     """
     Prepare optimizer kwargs by filtering args to only include parameters relevant to the specific optimizer.
     
@@ -210,22 +210,7 @@ def prepare_optimizer_kwargs(args: argparse.Namespace, optimizer_type: str) -> d
 
     all_kwargs = vars(args).copy()
 
-    # Map short optimizer names to PySINDy classes if available
-    optimizer_map = {
-        'stlsq': ps.STLSQ,
-        'sr3': getattr(ps, 'SR3', None),
-        'frols': getattr(ps, 'FROLS', None),
-        'ssr': getattr(ps, 'SSR', None),
-        'constrainedsr3': getattr(ps, 'ConstrainedSR3', None),
-        'miosr': getattr(ps, 'MIOSR', None),
-    }
-
-    if optimizer_type not in optimizer_map or optimizer_map[optimizer_type] is None:
-        # Provide clearer message which optimizer classes are available
-        available = [k for k, v in optimizer_map.items() if v is not None]
-        raise ValueError(f"Unknown or unavailable optimizer type: {optimizer_type}. Available: {available}")
-
-    opt_cls = optimizer_map[optimizer_type]
+    opt_cls = getattr(ps, args.optimizer.upper(), None)
 
     # Inspect the constructor signature and accept only supported parameters
     sig = inspect.signature(opt_cls.__init__)
@@ -237,15 +222,6 @@ def prepare_optimizer_kwargs(args: argparse.Namespace, optimizer_type: str) -> d
     for k, v in all_kwargs.items():
         if k in allowed and v is not None:
             filtered_kwargs[k] = v
-
-    # Special parsing for common JSON-like fields
-    if 'ridge_kw' in filtered_kwargs and isinstance(filtered_kwargs['ridge_kw'], str):
-        import json
-        try:
-            filtered_kwargs['ridge_kw'] = json.loads(filtered_kwargs['ridge_kw'])
-        except (json.JSONDecodeError, TypeError):
-            print("Warning: Invalid ridge_kw JSON, removing from kwargs")
-            filtered_kwargs.pop('ridge_kw', None)
 
     return filtered_kwargs
 
@@ -276,33 +252,34 @@ def create_optimizer(args: argparse.Namespace) -> Any:
     Raises:
         ValueError: If unknown optimizer_type is specified
     """
-    optimizer_type = args.optimizer
+    
+    optimizer_kwargs = prepare_optimizer_kwargs(args)
 
-    # Map optimizer short-names to PySINDy classes (None if not present)
-    optimizer_map = {
-        'stlsq': ps.STLSQ,
-        'sr3': getattr(ps, 'SR3', None),
-        'frols': getattr(ps, 'FROLS', None),
-        'ssr': getattr(ps, 'SSR', None),
-        'constrainedsr3': getattr(ps, 'ConstrainedSR3', None),
-        'miosr': getattr(ps, 'MIOSR', None),
+    # Simple mapping to known pysindy optimizer class names. Use getattr to
+    # avoid AttributeError if a class isn't present in the installed pysindy.
+    name = args.optimizer.lower()
+    mapping = {
+        'stlsq': 'STLSQ',
+        'sr3': 'SR3',
+        'constrainedsr3': 'ConstrainedSR3',
+        'stablelinearsr3': 'StableLinearSR3',
+        'trappingsr3': 'TrappingSR3',
+        'ssr': 'SSR',
+        'frols': 'FROLS',
+        'sindypi': 'SINDyPI',
+        'miosr': 'MIOSR',
     }
 
-    if optimizer_type not in optimizer_map:
-        raise ValueError(f"Unknown optimizer type: {optimizer_type}")
+    cls_name = mapping.get(name)
+    if cls_name is None:
+        raise ValueError(f"Unknown optimizer type: {args.optimizer}")
 
-    opt_cls = optimizer_map[optimizer_type]
+    opt_cls = getattr(ps, cls_name, None)
     if opt_cls is None:
-        raise ValueError(f"Optimizer '{optimizer_type}' is not available in the installed pysindy version.")
+        raise ValueError(f"Optimizer '{cls_name}' is not available in the installed pysindy. "
+                         "Please install/upgrade pysindy or choose a different optimizer.")
 
-    optimizer_kwargs = prepare_optimizer_kwargs(args, optimizer_type)
-
-    try:
-        return opt_cls(**optimizer_kwargs)
-    except TypeError as e:
-        # Provide a helpful error message indicating unexpected kwargs
-        raise TypeError(f"Failed to instantiate optimizer '{optimizer_type}' with arguments {optimizer_kwargs}: {e}")
-
+    return opt_cls(**optimizer_kwargs)
 
 def build_model(args: argparse.Namespace) -> ps.SINDy:
     """
