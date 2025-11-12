@@ -18,7 +18,7 @@ Project: Intelligent Building Management System through Data-Driven Thermodynami
 
 import pandas as pd
 import numpy as np
-from typing import Tuple, Optional, Any
+from typing import Tuple, Optional, Any, List
 import argparse
 
 
@@ -177,7 +177,7 @@ def downsample_data(sensors_data: np.ndarray, actuators_data: np.ndarray, config
     return sensors_data[indices], actuators_data[indices], configuration_data[indices]
 
 
-def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[Tuple[Any, Any]]]:
+def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[Tuple[Any, Any]], Optional[List[str]]]:
     """
     Complete data loading and preprocessing pipeline.
     
@@ -210,7 +210,11 @@ def load_and_process_data(args: argparse.Namespace) -> Tuple[np.ndarray, np.ndar
     print("Loading data...")
     
     # Load data from CSV files, optionally extract column names
-    feature_names = None
+    feature_names = []
+    U_names = []
+    sensors_names = []
+    actuators_names = []
+    configuration_names = []
     if args.named_variables:
         sensors_data, sensors_names = get_csv_data(args.sensors, args.sep, return_names=True)
         actuators_data, actuators_names = get_csv_data(args.actuators, args.sep, return_names=True)

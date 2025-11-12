@@ -1,1 +1,12 @@
 RoomA:Sensor__room_temperature
+RoomB:Sensor__room_temperature
+RoomC:Sensor__room_temperature
+RoomD:Sensor__room_temperature
+RoomE:Sensor__room_temperature
+RoomF:Sensor__room_temperature
+RoomA:Sensor__CO2
+RoomB:Sensor__CO2
+RoomC:Sensor__CO2
+RoomD:Sensor__CO2
+RoomE:Sensor__CO2
+RoomF:Sensor__CO2
