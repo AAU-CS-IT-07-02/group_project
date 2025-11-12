@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-make_easy_dataset.py
+deepxde_make_dataset.py
 
 Create simple docs-style DataSet files (easy.train / easy.test) from your building CSVs
 so you can train a plain supervised FNN with DeepXDE (no physics, no BCs).
@@ -14,7 +14,7 @@ Key features
 
 Usage
 -----
-python make_easy_dataset.py \
+python deepxde_make_dataset.py \
   --act path/to/data_actuators.csv \
   --sns path/to/data_sensors.csv \
   --cfg path/to/data_configuration.csv \
