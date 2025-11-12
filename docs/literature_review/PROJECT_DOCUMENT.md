@@ -48,6 +48,7 @@ We propose the development of a collaborative and predictive control system for 
 As a prerequisite to building a predictive controller, the system must be able to model the thermodynamic behavior of the building to predict its state and simulate reactions to actuators. A systematic evaluation of available techniques reveals the following decision-making process:
 
 *Black Box Approaches*: Despite having extensive data collected from AAU BUILD's sensors and actuators over 4 years, black box methods are ruled out due to their reduced explainability, interpretability, and predictability. Given the security focus of this semester project, sufficient guarantees cannot be provided using techniques such as:
+
 - Classic neural networks (RNNs/LSTMs)
 - Physics-informed Neural Networks  
 - Neural ODEs
@@ -55,6 +56,7 @@ As a prerequisite to building a predictive controller, the system must be able t
 Additionally, the controller needs to calculate distant future states efficiently rather than computing each intermediate step, aiming to reduce computational overhead.
 
 *Grey/White Box Approaches*: These considerations direct the approach toward grey/white box models that provide greater insights and guarantees:
+
 - **Manual ODE definition**: Given AAU BUILD's size, complexity, and high-dimensional functional dependencies, manually defining ordinary differential equations is ruled out, especially considering the team's limited expertise in this domain.
 - **UPPAAL finite-state automata**: While more approachable and well-supported by existing research, this approach is rejected due to the high barrier to entry for both the technique and tooling, given limited experience.
 - **Data-driven ODE approximation**: Leveraging the extensive dataset, grey/white box models can be trained that better align with the requirements. Two promising techniques are identified:
@@ -67,6 +69,7 @@ SINDy is chosen as the primary system identification technique, with DMD as a ba
 ### **Smart Predictive and Collaborative Controller**
 
 Building upon an accurate thermodynamic model, the project aims to implement a controller with predictive capabilities that can coordinate multiple actuators to achieve optimal building performance. The controller should consider the following features:
+
 - **Predictive capability**: Anticipate future states and disturbances
 - **Multi-actuator coordination**: Manage HVAC, lighting, and ventilation systems collaboratively
 - **Safety guarantees**: Ensure system constraints are never violated
@@ -74,12 +77,15 @@ Building upon an accurate thermodynamic model, the project aims to implement a c
 Various control approaches are considered based on their suitability for the multiple objectives:
 
 **Traditional Control Methods**:
+
 - **PID Control**: While popular and well-understood, PID controllers are inherently reactive and would require complex hierarchical inner/outer control loops to achieve predictive capabilities. This approach is rejected due to implementation complexity and limited coordination abilities.
 
 **State-Based Control**:
+
 - **Finite-State Automata (UPPAAL)**: Could provide formal verification capabilities and handle discrete system states effectively. However, achieving performance comparable to other control methods might prove difficult, particularly for the complex, multi-dimensional optimization required in smart building control.
 
 **Advanced Control Strategies**:
+
 - **Optimal Control**: While this approach could handle multi-objective optimization needs and constraints requirements perfectly, it's simply too computationally expensive for real-time building control. Running detailed system simulations at every control step would be impractical.
 
 - **Model Predictive Control (MPC)**: Represents the optimal balance between performance and computational feasibility. MPC addresses all requirements through:
@@ -102,6 +108,7 @@ The controller will operate on a hierarchical structure where high-level comfort
 ### **Control Panel Interface**
 
 The final system component would be a control panel responsible for setting desired system states that the MPC controller achieves (analogous to defining system "attitude" or trajectory). This interface would work as a building profile selection mechanism with built-in automations for:
+
 - Nighttime temperature adjustments
 - Enhanced comfort conditions for booked rooms  
 - Extreme weather forecast handling
@@ -116,17 +123,20 @@ While likely beyond this project's scope due to time constraints, this control p
 The project has been designed a comprehensive building management system, but realistically not everything will be finished given the one semester time constraint. The main focus will be getting the thermodynamic simulation working well, and then attempting to implement a basic version of the controller.
 
 **Primary focus areas:**
+
 - Building a thermodynamic model using SINDy
 - Getting data from AAU BUILD's BMS and cleaning it up
 - Validating the model works properly
 - Basic MPC controller implementation
 
 **Secondary objectives (if time permits):**
+
 - Testing the controller and evaluating performance
 - Simple interface for changing setpoints manually
 - Comparing the approach with existing methods
 
 **Out of scope:**
+
 - Full control panel with UPPAAL verification
 - Complete system integration and real deployment
 - Extensive real-world testing
@@ -138,6 +148,7 @@ The work is split into three development milestones plus the final report:
 #### **Milestone 1: Building Thermodynamic Simulation**
 **Timeline:** Weeks 1-6  
 **Deliverables:**
+
 - Pipeline to extract data from AAU BUILD BMS
 - Clean augmented dataset ready for training
 - Working SINDy model
@@ -145,18 +156,21 @@ The work is split into three development milestones plus the final report:
 - DMD backup implementation if SINDy doesn't work
 
 **Success criteria:**
+
 - Model predicts building behavior accurately
 - Fast enough to use for real-time control
 
 #### **Milestone 2: Smart Controller**
 **Timeline:** Weeks 7-10  
 **Deliverables:**
+
 - MPC controller using do-mpc
 - Integration with the thermodynamic model
 - Basic constraints and cost functions
 - Testing with simulated scenarios
 
 **Success criteria:**
+
 - Controller can coordinate multiple actuator
 - Works better than simple reactive controllers
 - Respects safety constraints
@@ -164,23 +178,27 @@ The work is split into three development milestones plus the final report:
 #### **Milestone 3: Control Panel**
 **Timeline:** Weeks 11-12 (if time permits)  
 **Deliverables:**
+
 - Basic interface for manual control
 - Simple automation rules
 - Documentation for future UPPAAL work
 
 **Success criteria:**
+
 - Working interface for manual setpoints
 - Basic automated switching between profiles
 
 #### **Milestone 4: Final Report and Presentation**
 **Timeline:** Weeks 13-14  
 **Deliverables:**
+
 - Project report
 - Technical documentation
 - Performance results
 - Final presentation
 
 **Success criteria:**
+
 - Complete documentation of achieved results
 - Clear evaluation of system performance
 - Cross-team knowledge of each area
