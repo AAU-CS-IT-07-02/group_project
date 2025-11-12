@@ -1,4 +1,0 @@
-RoomA:Control__setpoint_temperature_global
-RoomA:Control__heating_limit
-RoomA:Control__cooling_limit
-RoomA:Control__setpoint_CO2
