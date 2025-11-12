@@ -2,3 +2,8 @@ pysindy==2.0.0
 matplotlib
 scipy
 pandas
+torch>=2.2
+pytorch-lightning>=2.3
+numpy 
+pyyaml
+deepxde==1.14.0

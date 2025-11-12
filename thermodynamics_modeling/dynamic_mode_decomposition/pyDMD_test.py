@@ -7,11 +7,12 @@ and Multi-Resolution DMD (MrDMD) on building sensor, actuator, and configuration
 
 Steps:
 1. Load and clean data (remove timestamps, handle NaNs).
-2. Interpolate missing values using pandas.
-3. Normalize and reduce dimensionality using PCA.
-4. Apply DMD variants and save results.
 
-Author: Eduard Brahas
+2. Interpolate missing values using pandas.
+
+3. Normalize and reduce dimensionality using PCA.
+
+4. Apply DMD variants and save results.
 """
 
 import numpy as np
