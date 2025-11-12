@@ -194,6 +194,19 @@ def _add_all_arguments(parser: argparse.ArgumentParser) -> None:
                    help="Maximum iterations for STLSQ optimizer")
     parser.add_argument("--normalize-columns", action="store_true",
                    help="Normalize feature matrix columns")
+    
+    # Additional STLSQ parameters
+    parser.add_argument("--ridge-kw", default=None,
+                   help="JSON string with keyword arguments for ridge regression (e.g., '{\"fit_intercept\": false}')")
+    parser.add_argument("--copy-X", action="store_true", default=True,
+                   help="If True, X will be copied; else, it may be overwritten")
+    parser.add_argument("--no-copy-X", dest="copy_X", action="store_false",
+                   help="Do not copy X matrix (may overwrite input data)")
+    parser.add_argument("--verbose", action="store_true",
+                   help="Print error terms every iteration during STLSQ fitting")
+    parser.add_argument("--no-unbias", dest="unbias", action="store_false", default=True,
+                   help="Disable unbiasing step in STLSQ")
+    
     parser.add_argument("--coefficient-threshold", type=float, default=1000.0, 
                    help="Maximum allowed coefficient magnitude (for stability)")
     

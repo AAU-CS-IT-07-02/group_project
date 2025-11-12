@@ -22,8 +22,10 @@ import matplotlib.pyplot as plt
 import matplotlib
 import argparse
 import time
-import signal
 import os
+import inspect
+import concurrent.futures
+import signal
 from typing import Tuple, Optional, Any
 
 from data_processing import prepare_training_data
@@ -176,46 +178,130 @@ def create_feature_library(args):
         return create_single_library(library_type, single_params)
 
 
-def create_optimizer(optimizer_type: str, threshold: float = 0.1, alpha: float = 0.0, 
-                    max_iter: int = 20, normalize_columns: bool = False, lasso_alpha: float = 0.01):
+def prepare_optimizer_kwargs(args: argparse.Namespace, optimizer_type: str) -> dict:
+    """
+    Prepare optimizer kwargs by filtering args to only include parameters relevant to the specific optimizer.
+    
+    This function converts argparse.Namespace to dict and filters out parameters that are not
+    supported by the specified optimizer to prevent TypeError when passing kwargs.
+    
+    Parameters:
+        args: argparse.Namespace containing all CLI/config parameters
+        optimizer_type: Type of optimizer ('stlsq', 'sr3', 'frols', etc.)
+        
+    Returns:
+        dict: Filtered kwargs dictionary containing only parameters relevant to the optimizer
+        
+    Raises:
+        ValueError: If unknown optimizer_type is specified
+    """
+    """
+    Prepare optimizer kwargs by filtering args to include only parameters accepted by the
+    chosen PySINDy optimizer. This implementation introspects the optimizer class
+    signature (via inspect.signature) to avoid brittle hard-coded parameter lists.
+    
+    Parameters:
+        args: argparse.Namespace containing CLI/config parameters
+        optimizer_type: string key for optimizer (e.g. 'stlsq', 'sr3', ...)
+    
+    Returns:
+        dict of filtered kwargs suitable to pass to the optimizer constructor
+    """
+
+    all_kwargs = vars(args).copy()
+
+    # Map short optimizer names to PySINDy classes if available
+    optimizer_map = {
+        'stlsq': ps.STLSQ,
+        'sr3': getattr(ps, 'SR3', None),
+        'frols': getattr(ps, 'FROLS', None),
+        'ssr': getattr(ps, 'SSR', None),
+        'constrainedsr3': getattr(ps, 'ConstrainedSR3', None),
+        'miosr': getattr(ps, 'MIOSR', None),
+    }
+
+    if optimizer_type not in optimizer_map or optimizer_map[optimizer_type] is None:
+        # Provide clearer message which optimizer classes are available
+        available = [k for k, v in optimizer_map.items() if v is not None]
+        raise ValueError(f"Unknown or unavailable optimizer type: {optimizer_type}. Available: {available}")
+
+    opt_cls = optimizer_map[optimizer_type]
+
+    # Inspect the constructor signature and accept only supported parameters
+    sig = inspect.signature(opt_cls.__init__)
+    allowed = set(sig.parameters.keys())
+    # remove 'self' if present
+    allowed.discard('self')
+
+    filtered_kwargs = {}
+    for k, v in all_kwargs.items():
+        if k in allowed and v is not None:
+            filtered_kwargs[k] = v
+
+    # Special parsing for common JSON-like fields
+    if 'ridge_kw' in filtered_kwargs and isinstance(filtered_kwargs['ridge_kw'], str):
+        import json
+        try:
+            filtered_kwargs['ridge_kw'] = json.loads(filtered_kwargs['ridge_kw'])
+        except (json.JSONDecodeError, TypeError):
+            print("Warning: Invalid ridge_kw JSON, removing from kwargs")
+            filtered_kwargs.pop('ridge_kw', None)
+
+    return filtered_kwargs
+
+
+def create_optimizer(args: argparse.Namespace) -> Any:
     """
     Create a sparse regression optimizer for SINDy model training.
     
     The optimizer determines which terms are included in the discovered equations
     by enforcing sparsity (keeping only the most important relationships).
     
+    Currently supported optimizers:
+    - STLSQ: Sequential Thresholded Least Squares (default)
+    
+    Future optimizers planned:
+    - SR3: Sparse Relaxed Regularized Regression
+    - FROLS: Forward Regression with Orthogonal Least Squares
+    - SSR: Stepwise Sparse Regression
+    - ConstrainedSR3: Constrained SR3
+    - MIOSR: Mixed Integer Optimization for Sparse Regression
+    
     Parameters:
-        optimizer_type: Type of optimizer ('stlsq' currently supported)
-        threshold: Sparsity threshold - smaller values remove more terms
-        alpha: Regularization parameter for numerical stability
-        max_iter: Maximum iterations for iterative algorithms
-        normalize_columns: Whether to normalize feature matrix columns
-        lasso_alpha: Alpha parameter for Lasso-based optimizers
+        args: Configuration namespace containing optimizer parameters from CLI/YAML
         
     Returns:
-        PySINDy optimizer object
+        PySINDy optimizer object configured with specified parameters
         
     Raises:
         ValueError: If unknown optimizer_type is specified
-        
-    Note:
-        Additional optimizers (SR3, FROLS, etc.) are planned for future implementation.
     """
-    if optimizer_type == "stlsq":
-        return ps.STLSQ(threshold=threshold, alpha=alpha, max_iter=max_iter, normalize_columns=normalize_columns)
-    # TODO: Finish adding all the optimizers and their parameters to the constructor
-    # elif optimizer_type == "ssr":
-    #     return ps.SSR(threshold=threshold, alpha=alpha, max_iter=max_iter, normalize_columns=normalize_columns)
-    # elif optimizer_type == "frols":
-    #     return ps.FROLS(threshold=threshold, max_iter=max_iter, normalize_columns=normalize_columns)
-    # elif optimizer_type == "sr3":
-    #     return ps.SR3(threshold=threshold, nu=alpha, max_iter=max_iter, normalize_columns=normalize_columns)
-    # elif optimizer_type == "constrainedsr3":
-    #     return ps.ConstrainedSR3(threshold=threshold, nu=alpha, max_iter=max_iter, normalize_columns=normalize_columns)
-    # elif optimizer_type == "miosr":
-    #     return ps.MIOSR(target_sparsity=int(1/threshold) if threshold > 0 else 10, normalize_columns=normalize_columns)
-    else:
+    optimizer_type = args.optimizer
+
+    # Map optimizer short-names to PySINDy classes (None if not present)
+    optimizer_map = {
+        'stlsq': ps.STLSQ,
+        'sr3': getattr(ps, 'SR3', None),
+        'frols': getattr(ps, 'FROLS', None),
+        'ssr': getattr(ps, 'SSR', None),
+        'constrainedsr3': getattr(ps, 'ConstrainedSR3', None),
+        'miosr': getattr(ps, 'MIOSR', None),
+    }
+
+    if optimizer_type not in optimizer_map:
         raise ValueError(f"Unknown optimizer type: {optimizer_type}")
+
+    opt_cls = optimizer_map[optimizer_type]
+    if opt_cls is None:
+        raise ValueError(f"Optimizer '{optimizer_type}' is not available in the installed pysindy version.")
+
+    optimizer_kwargs = prepare_optimizer_kwargs(args, optimizer_type)
+
+    try:
+        return opt_cls(**optimizer_kwargs)
+    except TypeError as e:
+        # Provide a helpful error message indicating unexpected kwargs
+        raise TypeError(f"Failed to instantiate optimizer '{optimizer_type}' with arguments {optimizer_kwargs}: {e}")
 
 
 def build_model(args: argparse.Namespace) -> ps.SINDy:
@@ -230,14 +316,7 @@ def build_model(args: argparse.Namespace) -> ps.SINDy:
     """
     feature_library = create_feature_library(args)
     
-    optimizer = create_optimizer(
-        args.optimizer, 
-        args.threshold, 
-        args.alpha, 
-        args.max_iter,
-        args.normalize_columns, 
-        args.lasso_alpha
-    )
+    optimizer = create_optimizer(args)
     
     print(f"\nBuilding SINDy model architecture...")
     
@@ -404,18 +483,16 @@ def validate_model(model: ps.SINDy, X_train: np.ndarray, X_test: np.ndarray,
         def timeout_handler(signum, frame):
             raise TimeoutError(f"Simulation timed out after {max_sim_time}s")
         
-        # Set timeout alarm
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(max_sim_time)
-        
-        try:
-            X_pred = simulate_with_timeout()
-            signal.alarm(0)  # Cancel alarm
-        except TimeoutError as e:
-            signal.alarm(0)  # Cancel alarm
-            print(f"    {e}")
-            print(f"    Try using --validation-subsample for faster validation")
-            raise e
+        # Run simulation with a thread-based timeout (cross-platform)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(simulate_with_timeout)
+            try:
+                X_pred = future.result(timeout=max_sim_time)
+            except concurrent.futures.TimeoutError:
+                future.cancel()
+                print(f"    Simulation timed out after {max_sim_time}s")
+                print(f"    Try using --validation-subsample for faster validation")
+                raise TimeoutError(f"Simulation timed out after {max_sim_time}s")
         
         simulation_time = time.time() - simulation_start
         print(f"  Simulation time: {simulation_time:.2f}s")
