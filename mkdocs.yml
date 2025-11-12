@@ -1,4 +1,4 @@
-site_name: Group Project 2 -- Intelligent Building Management System through Data-Driven Thermodynamics Modeling and Control
+site_name: Group 2 Project -- Intelligent Building Management System through Data-Driven Thermodynamics Modeling and Control
 
 theme:
   name: material
@@ -9,16 +9,28 @@ plugins:
       default_handler: python
 
 markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.snippets
   - admonition
   - toc:
       permalink: true
-  - pymdownx.snippets
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 nav:
   - Home: index.md 
   - Engineering Document: literature_review/PROJECT_DOCUMENT.md
   - Database Extraction: db_extraction.md 
   - Database Augmentation: db_augmentation.md 
-  - Thermodynamics Modeling: thermodynamics_modeling.md
+  - Thermodynamics Modeling: 
+      - pySINDy examples: thermodynamics_modeling/thermodynamics_modeling_with_sindy.md
+      - Smart Building Dynamic Modeling: thermodynamics_modeling/smart_building_modeling.md 
+      - Dynamic mode decomposition: thermodynamics_modeling/DMD.md
+      - PINNs: thermodynamics_modeling/PINNs.md
   - MPC: do_mpc_setup.md
   - Slurm pipeline: slurm_pipeline.md 

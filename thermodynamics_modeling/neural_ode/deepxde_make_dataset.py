@@ -19,8 +19,8 @@ python make_easy_dataset.py \
   --sns path/to/data_sensors.csv \
   --cfg path/to/data_configuration.csv \
   --room RoomA \
-  --target "RoomA:Sensor Room Temperature" \
-  --fourier_k 6 --test_days 2 --outdir easy_out
+  --target "RoomA:sensor__room_temperature" \
+  --fourier_k 6 --test_days 2 --outdir out
 """
 
 import argparse, json
@@ -81,7 +81,7 @@ def main():
     ap.add_argument('--cfg', required=True)
     ap.add_argument('--room', default='RoomA', choices=['RoomA','RoomC'])
     ap.add_argument('--target', type=str, default=None, help='Exact column name to use as target (room temperature).')
-    ap.add_argument('--outdir', default='./easy_out')
+    ap.add_argument('--outdir', default='./out')
     ap.add_argument('--fourier_k', type=int, default=6)
     ap.add_argument('--add_lag', action='store_true', help='Append one-step lag of target as an extra feature')
     ap.add_argument('--test_days', type=int, default=2, help='Hold out last N days for test set')

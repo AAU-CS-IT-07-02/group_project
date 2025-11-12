@@ -3,8 +3,7 @@ matplotlib
 scipy
 pandas
 torch>=2.2
-torchdyn==1.0.*
 pytorch-lightning>=2.3
 numpy 
 pyyaml
-
+deepxde==1.14.0
