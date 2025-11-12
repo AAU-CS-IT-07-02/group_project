@@ -2,6 +2,11 @@ import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 
+# Note that in the context of this example, we have
+# thermal capacitance (C), which represents how much heat the room stores; thermal resistance (R), which determines how easily heat flows between inside and outside;
+# heat input (Q_in) from HVAC or internal gains; and outdoor temperature (T_out) as a time-varying input.
+# The differential equation describing the system is: C * dT_in/dt = (T_out - T_in)/R + Q_in.
+
 def rc_model(t, T_in, R, C, T_out_func, Q_in_func):
     T_out = T_out_func(t)
     Q_in = Q_in_func(t)
