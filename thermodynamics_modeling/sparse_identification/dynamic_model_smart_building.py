@@ -1,3 +1,26 @@
+
+"""
+# Notes
+Observation arrays follow the following axis conventions: (spatial_1, ..., spatial_n, time, coordinate). For ODEs (no spatial dependence), that means the first axis is time, the second axis is coordinate. pysindy also requires the timepoints of the observations. 
+While there are several ways to pass this information, the most straightfowrads is a 1-D array of timepoints.
+
+t, x, y = gen_data1()
+X = np.stack((x, y), axis=-1)  # First column is x, second is y
+print(f"Data is shape: {X.shape}")
+print(f"time is shape: {t.shape}")
+Data is shape: (50, 2)
+time is shape: (50,)
+"""
+"""
+# TODO:
+- Rethink the state space + observations
+"""
+
+"""
+Command reference:
+python dynamic_model_smart_building.py --sensors ../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_sensors.csv --actuators ../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_actuators.csv --configuration ../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_configuration.csv
+"""
+
 """
 Dynamic Modeling of Smart Building Systems using Sparse Identification of Nonlinear Dynamics.
 
@@ -20,6 +43,7 @@ safety verification in smart building applications.
 
 Example Usage:
     ```bash
+    # Standard usage
     python dynamic_model_smart_building.py \
         --sensors data_sensors.csv \
         --actuators data_actuators.csv \
@@ -33,6 +57,8 @@ Project: Intelligent Building Management System through Data-Driven Thermodynami
 """
 
 import argparse
+import threading
+import time
 
 import pandas as pd
 
@@ -43,8 +69,8 @@ import matplotlib
 matplotlib.use('Agg')  # Set non-interactive backend for server-side plotting
 import matplotlib.pyplot as plt
 import numpy as np
-
 import pysindy as ps
+import psutil
 
 # --- NEW IMPORTS (from scipy_numba.py) ---
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
@@ -84,7 +110,7 @@ def parse_args() -> argparse.Namespace:
                    help="Method for interpolating missing values")
     p.add_argument("--include-configuration", action="store_true", 
                    help="Include configuration variables in state vector (default: sensors only)")
-    p.add_argument("--dt", type=float, default=0.1, 
+    p.add_argument("--dt", type=float, default=5, 
                    help="Time step between measurements")
     
     # SINDy model hyperparameters
@@ -96,12 +122,22 @@ def parse_args() -> argparse.Namespace:
                    help="Regularization parameter for STLSQ optimizer")
     p.add_argument("--max-iter", type=int, default=20, 
                    help="Maximum iterations for STLSQ optimizer")
-    p.add_argument("--normalize-columns", action="store_true", 
+    p.add_argument("--normalize-columns", action="store_true",
                    help="Normalize feature matrix columns")
+    p.add_argument("--coefficient-threshold", type=float, default=1000.0, 
+                   help="Maximum allowed coefficient magnitude (for stability)")
     
     # Training/validation hyperparameters
     p.add_argument("--train-split", type=float, default=0.7, 
                    help="Fraction of data to use for training (rest for validation)")
+    p.add_argument("--skip-validation", action="store_true", 
+                   help="Skip validation step after training")
+    p.add_argument("--skip-visualization", action="store_true", 
+                   help="Skip plotting and visualization")
+    p.add_argument("--validation-subsample", type=int, default=1, 
+                   help="Subsample validation data for faster simulation (1=full, 10=every 10th sample)")
+    p.add_argument("--simulation-timeout", type=int, default=60, 
+                   help="Maximum time (seconds) to wait for simulation before timeout")
     
     # Data normalization options
     p.add_argument("--normalize-data", action="store_true", 
@@ -114,12 +150,22 @@ def parse_args() -> argparse.Namespace:
                    help="Type of feature library to use")
     p.add_argument("--fourier-n-frequencies", type=int, default=2, 
                    help="Number of frequencies for Fourier library")
+    p.add_argument("--no-interactions", action="store_true", 
+                   help="Disable interaction terms in feature library (default: include interactions)")
     
     # Optimizer options
     p.add_argument("--optimizer", default="stlsq", choices=["stlsq", "lasso", "ridge"], 
                    help="Optimizer type for SINDy")
     p.add_argument("--lasso-alpha", type=float, default=0.01, 
                    help="Alpha parameter for Lasso optimizer")
+    
+    # System monitoring options
+    p.add_argument("--monitor-interval", type=int, default=20, 
+                   help="Interval in seconds for logging system usage (CPU, RAM, etc). Set to 0 to disable monitoring.")
+    
+    # Data sampling options for performance optimization
+    p.add_argument("--sampling-rate", type=int, default=1, 
+                   help="Downsample data by taking every N-th sample (1=no sampling, 10=10x speedup)")
     
     return p.parse_args()
 
@@ -205,7 +251,7 @@ def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: 
     
     return sensors_clean, actuators_clean, configuration_clean
 
-def create_feature_library(library_type: str, polynomial_degree: int = 2, fourier_n_frequencies: int = 2):
+def create_feature_library(library_type: str, polynomial_degree: int = 2, fourier_n_frequencies: int = 2, include_interactions: bool = True):
     """
     Create a PySINDy feature library for building dynamics modeling.
     
@@ -218,6 +264,7 @@ def create_feature_library(library_type: str, polynomial_degree: int = 2, fourie
         library_type: Type of feature library ('polynomial', 'fourier', 'identity')
         polynomial_degree: Maximum polynomial degree for nonlinear features
         fourier_n_frequencies: Number of frequency components for periodic patterns
+        include_interactions: Whether to include interaction terms between variables
         
     Returns:
         PySINDy feature library object
@@ -227,7 +274,7 @@ def create_feature_library(library_type: str, polynomial_degree: int = 2, fourie
     """
     """Create feature library based on specified type."""
     if library_type == "polynomial":
-        return ps.PolynomialLibrary(degree=polynomial_degree)
+        return ps.PolynomialLibrary(degree=polynomial_degree, include_interaction=include_interactions)
     elif library_type == "fourier":
         return ps.FourierLibrary(n_frequencies=fourier_n_frequencies)
     elif library_type == "identity":
@@ -319,6 +366,26 @@ def normalize_data(X: np.ndarray, U: np.ndarray, method: str = "minmax"):
     
     return X_normalized, U_normalized, X_scaler, U_scaler
 
+def downsample_data(sensors_data: np.ndarray, actuators_data: np.ndarray, configuration_data: np.ndarray, sampling_rate: int = 1) -> tuple:
+    """
+    Downsample building data for faster training by taking every N-th sample.
+    
+    Parameters:
+        sensors_data: Sensor measurements array
+        actuators_data: Actuator commands array
+        configuration_data: Configuration data array
+        sampling_rate: Take every N-th sample (1=no downsampling, 10=10x speedup)
+        
+    Returns:
+        tuple: (sensors_downsampled, actuators_downsampled, configuration_downsampled)
+    """
+    if sampling_rate <= 1:
+        return sensors_data, actuators_data, configuration_data
+    
+    # Take every N-th sample
+    indices = np.arange(0, len(sensors_data), sampling_rate)
+    return sensors_data[indices], actuators_data[indices], configuration_data[indices]
+
 def main():
     """
     Main function for dynamic building modeling using Sparse Identification of Nonlinear Dynamics.
@@ -353,11 +420,59 @@ def main():
             --polynomial-degree 1 \
             --threshold 0.0 \
             --normalize-data \
-            --train-split 0.8
+            --sampling-rate 10
         ```
     """
     args = parse_args()
 
+    # Record start time for job duration
+    import time
+    start_time = time.time()
+    
+    # Print comprehensive parameter summary for cluster data collection
+    print("="*80)
+    print("PYSINDY BUILDING DYNAMICS MODELING - JOB CONFIGURATION")
+    print("="*80)
+    print(f"Data Files:")
+    print(f"  Sensors:       {args.sensors}")
+    print(f"  Actuators:     {args.actuators}")
+    print(f"  Configuration: {args.configuration}")
+    print(f"  CSV Separator: {args.sep}")
+    print(f"")
+    print(f"Data Processing:")
+    print(f"  Interpolation Method:  {args.interpolation_method}")
+    print(f"  Include Configuration: {args.include_configuration}")
+    print(f"  Sampling Rate:         {args.sampling_rate} ({'no downsampling' if args.sampling_rate <= 1 else f'{args.sampling_rate}x speedup'})")
+    print(f"  Normalize Data:        {args.normalize_data}")
+    print(f"  Normalization Method:  {args.normalization_method}")
+    print(f"  Time Step (dt):        {args.dt}")
+    print(f"")
+    print(f"SINDy Model Configuration:")
+    print(f"  Feature Library:       {args.feature_library}")
+    print(f"  Polynomial Degree:     {args.polynomial_degree}")
+    print(f"  Fourier Frequencies:   {args.fourier_n_frequencies}")
+    print(f"  Include Interactions:  {not args.no_interactions}")
+    print(f"  Optimizer:             {args.optimizer}")
+    print(f"  Sparsity Threshold:    {args.threshold}")
+    print(f"  Regularization Alpha:  {args.alpha}")
+    print(f"  Max Iterations:        {args.max_iter}")
+    print(f"  Normalize Columns:     {args.normalize_columns}")
+    print(f"  Lasso Alpha:           {args.lasso_alpha}")
+    print(f"")
+    print(f"Training/Validation:")
+    print(f"  Train Split:           {args.train_split}")
+    print(f"  Skip Validation:       {args.skip_validation}")
+    print(f"  Skip Visualization:    {args.skip_visualization}")
+    print(f"")
+    print(f"System:")
+    print(f"  Monitor Interval:      {args.monitor_interval}s")
+    print(f"  Output Directory:      {args.outdir}")
+    print("="*80)
+    print("")
+
+    # Start system monitoring
+    start_monitoring(args.monitor_interval)
+    
     # Load data
     print("Loading data...")
     sensors_data = get_csv_data(args.sensors, args.sep)
@@ -375,13 +490,26 @@ def main():
         sensors_data, actuators_data, configuration_data, args.interpolation_method
     )
     
+    # Downsample data for faster training
+    original_size = len(sensors_data)
+    if args.sampling_rate > 1:
+        print(f"\nDownsampling data (every {args.sampling_rate} samples)...")
+        sensors_data, actuators_data, configuration_data = downsample_data(
+            sensors_data, actuators_data, configuration_data, args.sampling_rate
+        )
+        print(f"  Original size: {original_size:,} timesteps")
+        print(f"  Downsampled size: {len(sensors_data):,} timesteps")
+        print(f"  Speedup: {args.sampling_rate}x")
+    else:
+        print(f"No downsampling applied (using full dataset)")
+    
     # Combine data based on configuration
     if args.include_configuration:
         X = np.hstack([sensors_data, configuration_data])
-        print("Using sensors + configuration as state variables")
+        print(f"\nUsing sensors + configuration as state variables")
     else:
         X = sensors_data
-        print("Using sensors only as state variables")
+        print(f"\nUsing sensors only as state variables")
     
     # Use actuators as control inputs (U)
     U = actuators_data
@@ -408,7 +536,7 @@ def main():
     # Create time vector
     t = np.arange(len(X)) * args.dt
     
-    print(f"\nPrepared for SINDy:")
+    print(f"\nFinal data prepared for SINDy:")
     print(f"  States X: {X.shape}")
     print(f"  Controls U: {U.shape}")
     print(f"  Time points: {len(t)}")
@@ -424,7 +552,8 @@ def main():
         print("\n!!! CRITICAL WARNING: NaN or Inf values detected after normalization. Check input data. !!!")
 
     # Create feature library and optimizer
-    feature_library = create_feature_library(args.feature_library, args.polynomial_degree, args.fourier_n_frequencies)
+    feature_library = create_feature_library(args.feature_library, args.polynomial_degree, args.fourier_n_frequencies, 
+                                            include_interactions=not args.no_interactions)
     optimizer = create_optimizer(args.optimizer, args.threshold, args.alpha, args.max_iter, 
                                 args.normalize_columns, args.lasso_alpha)
     
@@ -440,6 +569,21 @@ def main():
     
     # Train the model
     model.fit(X, u=U, t=args.dt)
+    
+    # Check model stability
+    coeffs = model.coefficients()
+    max_coeff = np.abs(coeffs).max()
+    print(f"\nModel stability check:")
+    print(f"  Max coefficient magnitude: {max_coeff:.3f}")
+    print(f"  Coefficient threshold: {args.coefficient_threshold}")
+    
+    if max_coeff > args.coefficient_threshold:
+        print(f"  WARNING: Large coefficients detected! Model may be unstable.")
+        print(f"  Suggestions:")
+        print(f"    1. Increase sparsity threshold: --threshold {args.threshold * 2}")
+        print(f"    2. Add regularization: --alpha {max(0.1, args.alpha * 2)}")
+        print(f"    3. Force normalization: --force-normalization")
+        print(f"    4. Reduce polynomial degree: --polynomial-degree {max(1, args.polynomial_degree - 1)}")
     
     # Print discovered equations
     print("\nDiscovered equations:")
