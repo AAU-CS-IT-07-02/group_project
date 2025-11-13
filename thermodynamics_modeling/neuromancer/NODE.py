@@ -115,7 +115,7 @@ def get_splits(csv_path, dt_minutes=5, H=12, batch_size=64, split_ratio=0.8):
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=train_ds.collate_fn)
     dev_loader   = DataLoader(dev_ds, batch_size=batch_size, shuffle=False, collate_fn=dev_ds.collate_fn)
 
-    test_data = dev.copy()
+    test_data = {k: torch.tensor(v, dtype=torch.float32) for k, v in dev.items()}
     test_data["name"] = "test"
 
     return train_loader, dev_loader, test_data, data["dt_sec"], data["stats"]
@@ -202,8 +202,8 @@ def train_model(train_loader, dev_loader, test_data, encode_sym, dynamics_model)
         test_data,
         optimizer,
         patience=100,
-        warmup=500,
-        epochs=1000,
+        warmup=50,
+        epochs=10,
         eval_metric="dev_loss",
         train_metric="train_loss",
         dev_metric="dev_loss",
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     CSV = "../../AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv"
 
     # === Load dataset and splits ===
-    H = 12          # sequence length (1 hour horizon)
+    H = 48       # sequence length (1 hour horizon)
     batch_size = 64
     train_loader, dev_loader, test_data, dt_sec, stats = get_splits(
         CSV, dt_minutes=5, H=H, batch_size=batch_size
@@ -259,12 +259,13 @@ if __name__ == "__main__":
         return (x * std) + mean
 
     # --- Extract normalization stats (already defined earlier in your script)
-    muY_vals = stats.muY.values
-    stdY_vals = stats.stdY.values
-    muU_vals = stats.muU.values
-    stdU_vals = stats.stdU.values
-    muD_vals = stats.muD.values
-    stdD_vals = stats.stdD.values
+    muY_vals = stats["Y"][0].values  # mean
+    stdY_vals = stats["Y"][1].values  # std
+    muU_vals = stats["U"][0].values
+    stdU_vals = stats["U"][1].values
+    muD_vals = stats["D"][0].values
+    stdD_vals = stats["D"][1].values
+
 
     # --- Extract arrays
     yhat = test_outputs['test_y'].detach().cpu().numpy()
@@ -282,7 +283,7 @@ if __name__ == "__main__":
     true_traj = denormalize(Y_test, muY_vals, stdY_vals).reshape(-1, ny).T
     input_traj = denormalize(U_test, muU_vals, stdU_vals).reshape(-1, nu).T
     dist_traj = denormalize(D_test, muD_vals, stdD_vals).reshape(-1, nd).T
- 
+
     # --- Plot rollout comparison
     plt_nsteps = min(500, true_traj.shape[1])
     figsize = 12
