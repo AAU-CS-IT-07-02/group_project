@@ -34,3 +34,4 @@ nav:
       - PINNs: thermodynamics_modeling/PINNs.md
   - MPC: do_mpc_setup.md
   - Slurm pipeline: slurm_pipeline.md 
+  - List of alternatives: List_of_possible_alternative_methods_for_data.md
