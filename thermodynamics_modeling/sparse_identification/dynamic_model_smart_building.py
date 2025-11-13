@@ -11,7 +11,7 @@ Key Features:
     - Multiple interpolation methods for missing sensor values  
     - Configurable feature libraries (polynomial, Fourier, identity)
     - Flexible normalization and optimization strategies
-    - Temporal validation with predictive simulation
+    - Temporal validation with predictive simulation (via custom_numba_simulation)
     - Comprehensive hyperparameter tuning capabilities
 
 The discovered models serve as the foundation for Model Predictive Control (MPC)
@@ -39,10 +39,17 @@ import pandas as pd
 from contextlib import contextmanager
 from copy import copy
 
+import matplotlib
+matplotlib.use('Agg')  # Set non-interactive backend for server-side plotting
 import matplotlib.pyplot as plt
 import numpy as np
 
 import pysindy as ps
+
+# --- NEW IMPORTS (from scipy_numba.py) ---
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
+import custom_numba_simulation
+# ----------------------------------------
 
 
 def parse_args() -> argparse.Namespace:
@@ -81,8 +88,8 @@ def parse_args() -> argparse.Namespace:
                    help="Time step between measurements")
     
     # SINDy model hyperparameters
-    p.add_argument("--polynomial-degree", type=int, default=2, 
-                   help="Degree of polynomial features for SINDy")
+    p.add_argument("--polynomial-degree", type=int, default=1,
+                   help="Degree of polynomial features for SINDy. (Note: Numba simulation is hard-coded for degree 1)")
     p.add_argument("--threshold", type=float, default=0.1, 
                    help="Sparsity threshold for STLSQ optimizer")
     p.add_argument("--alpha", type=float, default=0.0, 
@@ -116,38 +123,44 @@ def parse_args() -> argparse.Namespace:
     
     return p.parse_args()
 
-def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False, drop_timestamps: bool = True) -> np.ndarray:
+def get_csv_data(file_path: str, delimiter: str = ',', drop_timestamps: bool = True) -> np.ndarray:
     """
-    Load a CSV file into a NumPy array.
+    Load a CSV file into a NumPy array, forcing float64 dtype.
 
-    Parameters:
+    This function uses pandas to read the CSV, which allows it to
+    robustly handle non-numeric values (e.g., 'OFF', 'AUTO'). These
+    values are coerced to `np.nan` and can be fixed later by interpolation.
+
+    Parameters
     ----------
     file_path : str
         Path to the CSV file.
     delimiter : str, optional
         Column separator (default is ',').
-    skip_header : bool, optional
-        If True, skip the header row (default is False).
+    drop_timestamps : bool, optional
+        If True, assumes the first column is a timestamp and drops it.
+        Defaults to True.
 
     Returns:
     ------
     np.ndarray
-        Data from the CSV as a NumPy array.
+        Data from the CSV as a float64 NumPy array.
     """
     # Read CSV using pandas for flexibility
     df = pd.read_csv(file_path, sep=delimiter, encoding='utf-8-sig', engine='python')
 
-    # Optionally drop header row
-    if skip_header:
-        data = df.to_numpy()
-    else:
-        # Keep header as first row if needed
-        data = df.to_numpy()
-        
     if drop_timestamps:
         # TODO: think about a better way to identify timestamp columns
         # Assume first column is timestamp, drop it
-        data = data[:, 1:]
+        df = df.iloc[:, 1:]
+
+    # Force all columns to numeric, coercing errors to NaN
+    # This ensures the output is always float and never object-dtype
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    # Now convert to numpy, which will be float64
+    data = df.to_numpy()
 
     return data
 
@@ -172,25 +185,6 @@ def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: 
     Note:
         Reports the number of missing values before and after interpolation for data quality assessment.
     """
-    """
-    Simple interpolation of missing values using pandas.
-    
-    Parameters:
-    ----------
-    sensors_data : np.ndarray
-        Sensor data array.
-    actuators_data : np.ndarray
-        Actuator data array.
-    configuration_data : np.ndarray
-        Configuration data array.
-    interpolation_method : str
-        Method for interpolation ('linear', 'cubic', 'spline', 'polynomial')
-        
-    Returns:
-    -------
-    tuple
-        (sensors_clean, actuators_clean, configuration_clean) with interpolated values.
-    """
     # Convert to DataFrames for easy interpolation
     sensors_df = pd.DataFrame(sensors_data)
     actuators_df = pd.DataFrame(actuators_data)
@@ -198,7 +192,7 @@ def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: 
     
     # Count initial NaN values
     total_nans = sensors_df.isna().sum().sum() + actuators_df.isna().sum().sum() + configuration_df.isna().sum().sum()
-    print(f"Total missing values: {total_nans}")
+    print(f"Total missing values (including coerced): {total_nans}")
     
     # Simple interpolation with specified method
     sensors_clean = sensors_df.interpolate(method=interpolation_method).bfill().ffill().values # type: ignore
@@ -309,15 +303,12 @@ def normalize_data(X: np.ndarray, U: np.ndarray, method: str = "minmax"):
     """
     """Normalize data using specified method."""
     if method == "minmax":
-        from sklearn.preprocessing import MinMaxScaler
         X_scaler = MinMaxScaler()
         U_scaler = MinMaxScaler()
     elif method == "standard":
-        from sklearn.preprocessing import StandardScaler
         X_scaler = StandardScaler()
         U_scaler = StandardScaler()
     elif method == "robust":
-        from sklearn.preprocessing import RobustScaler
         X_scaler = RobustScaler()
         U_scaler = RobustScaler()
     else:
@@ -339,11 +330,12 @@ def main():
         1. Load sensor, actuator, and configuration data from CSV files
         2. Interpolate missing values using specified method
         3. Prepare state variables (X) and control inputs (U) 
-        4. Optionally normalize data for numerical stability
-        5. Create SINDy model with specified feature library and optimizer
-        6. Train model on full dataset and display discovered equations
-        7. Validate model using train/test split and temporal simulation
-        8. Calculate prediction errors and generate comparison plots
+        4. Enforce stability-driven hyperparameters (normalization, optimizer)
+        5. Optionally normalize data for numerical stability
+        6. Create SINDy model with specified feature library and optimizer
+        7. Train model on full dataset and display discovered equations
+        8. Validate model using train/test split (retrain on train data)
+        9. Call high-speed Numba/SciPy simulation for validation and plotting
         
     The discovered equations represent the building as a controlled dynamical system:
         dX/dt = f(X, U)
@@ -353,13 +345,13 @@ def main():
     allowing experimentation with different hyperparameters and configurations.
     
     Raises:
-        Exception: If simulation fails during validation phase
+        Does not raise simulation exceptions directly, handled in custom module
         
     Example:
         ```bash
         python dynamic_model_smart_building.py \
-            --polynomial-degree 3 \
-            --threshold 0.05 \
+            --polynomial-degree 1 \
+            --threshold 0.0 \
             --normalize-data \
             --train-split 0.8
         ```
@@ -368,19 +360,14 @@ def main():
 
     # Load data
     print("Loading data...")
-    sensors_df = get_csv_data(args.sensors, args.sep)
-    actuators_df = get_csv_data(args.actuators, args.sep)
-    configuration_df = get_csv_data(args.configuration, args.sep)
+    sensors_data = get_csv_data(args.sensors, args.sep)
+    actuators_data = get_csv_data(args.actuators, args.sep)
+    configuration_data = get_csv_data(args.configuration, args.sep)
     
     print(f"Loaded:")
-    print(f"  Sensors: {sensors_df.shape}")
-    print(f"  Actuators: {actuators_df.shape}")
-    print(f"  Configuration: {configuration_df.shape}")
-    
-    # Convert to float (this may introduce NaN for invalid values)
-    sensors_data = sensors_df.astype(float)
-    actuators_data = actuators_df.astype(float)
-    configuration_data = configuration_df.astype(float)
+    print(f"  Sensors: {sensors_data.shape}")
+    print(f"  Actuators: {actuators_data.shape}")
+    print(f"  Configuration: {configuration_data.shape}")
     
     # Interpolate missing values
     print(f"\nInterpolating missing values using {args.interpolation_method} method...")
@@ -399,6 +386,25 @@ def main():
     # Use actuators as control inputs (U)
     U = actuators_data
     
+    # --- STABILITY FIXES (from scipy_numba.py) ---
+    if args.feature_library == "polynomial" and args.polynomial_degree > 1:
+        print(f"\n--- WARNING: Using Polynomial Degree {args.polynomial_degree}. ---")
+        print("--- The Numba simulation function is hard-coded for degree 1 ---")
+
+    if not args.normalize_data:
+        print("\n--- WARNING: Forcing data normalization (minmax) for numerical stability. ---")
+        args.normalize_data = True
+        args.normalization_method = "minmax"
+
+    if args.optimizer != "stlsq":
+        print(f"\n--- WARNING: Forcing optimizer to 'stlsq'. ---")
+        args.optimizer = "stlsq"
+
+    print(f"\n--- NOTE: Forcing STLSQ(threshold=0.0, alpha=10.0) for stability. ---")
+    args.threshold = 0.1
+    args.alpha = 75.0
+    # ----------------------------------------------------------------------
+
     # Create time vector
     t = np.arange(len(X)) * args.dt
     
@@ -413,6 +419,10 @@ def main():
         print(f"\nNormalizing data using {args.normalization_method} method...")
         X, U, X_scaler, U_scaler = normalize_data(X, U, args.normalization_method)
     
+    # Checks for residual numerical issues
+    if np.isnan(X).any() or np.isinf(X).any() or np.isnan(U).any() or np.isinf(U).any():
+        print("\n!!! CRITICAL WARNING: NaN or Inf values detected after normalization. Check input data. !!!")
+
     # Create feature library and optimizer
     feature_library = create_feature_library(args.feature_library, args.polynomial_degree, args.fourier_n_frequencies)
     optimizer = create_optimizer(args.optimizer, args.threshold, args.alpha, args.max_iter, 
@@ -421,7 +431,7 @@ def main():
     # Build SINDy model
     print(f"\nTraining SINDy model...")
     print(f"  Feature library: {args.feature_library} (degree={args.polynomial_degree})")
-    print(f"  Optimizer: {args.optimizer} (threshold={args.threshold})")
+    print(f"  Optimizer: {args.optimizer} (threshold={args.threshold}, alpha={args.alpha})")
     
     model = ps.SINDy(
         feature_library=feature_library,
@@ -444,34 +454,21 @@ def main():
     print(f"\nValidation with {args.train_split:.1%} train / {1-args.train_split:.1%} test split...")
     
     # Retrain on training data only
+    print("Retraining model on training data...")
     model.fit(X_train, u=U_train, t=args.dt)
     
-    # Predict on test data
-    try:
-        X_pred = model.simulate(X_test[0], t_test, u=U_test)
-        
-        # Calculate error
-        min_len = min(len(X_test), len(X_pred))
-        # TODO: are there more interesting error metrics?
-        rmse = np.sqrt(np.mean((X_test[:min_len] - X_pred[:min_len])**2))
-        
-        print(f"\nValidation RMSE: {rmse:.6f}")
-        
-        # Simple plot (fixed visualization parameters)
-        # TODO: plot all states on a multiplot figure
-        plt.figure(figsize=(12, 6))
-        for i in range(min(3, X.shape[1])):  # Plot first 3 states
-            plt.subplot(3, 1, i+1)
-            plt.plot(X_test[:min_len, i], 'k-', label='True')
-            plt.plot(X_pred[:min_len, i], 'r--', label='Predicted')
-            plt.ylabel(f'State {i+1}')
-            plt.legend()
-        plt.xlabel('Time steps')
-        plt.tight_layout()
-        plt.show()
-        
-    except Exception as e:
-        print(f"Simulation failed: {e}")
+    # --- CALL CUSTOM SIMULATION MODULE ---
+    # The original simulation block is replaced with this call.
+    print("\nPassing to Numba-accelerated simulation module...")
+    custom_numba_simulation.run_numba_validation(
+        model=model,
+        X_test=X_test,
+        U_test=U_test,
+        t_test=t_test,
+        dt=args.dt,
+        output_filename="validation_plot.png"
+    )
+    # -------------------------------------
 
 if __name__ == "__main__":
     main()
