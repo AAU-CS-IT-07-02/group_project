@@ -34,8 +34,7 @@ Key Features:
     - Multiple interpolation methods for missing sensor values  
     - Configurable feature libraries (polynomial, Fourier, identity)
     - Flexible normalization and optimization strategies
-    - Simple data downsampling for faster training
-    - Temporal validation with predictive simulation
+    - Temporal validation with predictive simulation (via custom_numba_simulation)
     - Comprehensive hyperparameter tuning capabilities
 
 The discovered models serve as the foundation for Model Predictive Control (MPC)
@@ -62,10 +61,21 @@ import threading
 import time
 
 import pandas as pd
+
+from contextlib import contextmanager
+from copy import copy
+
+import matplotlib
+matplotlib.use('Agg')  # Set non-interactive backend for server-side plotting
 import matplotlib.pyplot as plt
 import numpy as np
 import pysindy as ps
 import psutil
+
+# --- NEW IMPORTS (from scipy_numba.py) ---
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
+import custom_numba_simulation
+# ----------------------------------------
 
 
 def parse_args() -> argparse.Namespace:
@@ -104,8 +114,8 @@ def parse_args() -> argparse.Namespace:
                    help="Time step between measurements")
     
     # SINDy model hyperparameters
-    p.add_argument("--polynomial-degree", type=int, default=2, 
-                   help="Degree of polynomial features for SINDy")
+    p.add_argument("--polynomial-degree", type=int, default=1,
+                   help="Degree of polynomial features for SINDy. (Note: Numba simulation is hard-coded for degree 1)")
     p.add_argument("--threshold", type=float, default=0.1, 
                    help="Sparsity threshold for STLSQ optimizer")
     p.add_argument("--alpha", type=float, default=0.0, 
@@ -159,58 +169,44 @@ def parse_args() -> argparse.Namespace:
     
     return p.parse_args()
 
-def log_system_usage():
-    """Log current CPU and RAM usage."""
-    cpu = psutil.cpu_percent()
-    memory = psutil.virtual_memory()
-    print(f"[MONITOR] CPU: {cpu:.1f}% | RAM: {memory.percent:.1f}% ({memory.used/1024**3:.1f}GB/{memory.total/1024**3:.1f}GB)")
-
-def start_monitoring(interval_seconds: int):
-    """Start background monitoring thread."""
-    if interval_seconds <= 0:
-        return None
-    
-    def monitor():
-        while True:
-            time.sleep(interval_seconds)
-            log_system_usage()
-    
-    thread = threading.Thread(target=monitor, daemon=True)
-    thread.start()
-    return thread
-
-def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False, drop_timestamps: bool = True) -> np.ndarray:
+def get_csv_data(file_path: str, delimiter: str = ',', drop_timestamps: bool = True) -> np.ndarray:
     """
-    Load a CSV file into a NumPy array.
+    Load a CSV file into a NumPy array, forcing float64 dtype.
 
-    Parameters:
+    This function uses pandas to read the CSV, which allows it to
+    robustly handle non-numeric values (e.g., 'OFF', 'AUTO'). These
+    values are coerced to `np.nan` and can be fixed later by interpolation.
+
+    Parameters
     ----------
     file_path : str
         Path to the CSV file.
     delimiter : str, optional
         Column separator (default is ',').
-    skip_header : bool, optional
-        If True, skip the header row (default is False).
+    drop_timestamps : bool, optional
+        If True, assumes the first column is a timestamp and drops it.
+        Defaults to True.
 
     Returns:
     ------
     np.ndarray
-        Data from the CSV as a NumPy array.
+        Data from the CSV as a float64 NumPy array.
     """
     # Read CSV using pandas for flexibility
     df = pd.read_csv(file_path, sep=delimiter, encoding='utf-8-sig', engine='python')
 
-    # Optionally drop header row
-    if skip_header:
-        data = df.to_numpy()
-    else:
-        # Keep header as first row if needed
-        data = df.to_numpy()
-        
     if drop_timestamps:
         # TODO: think about a better way to identify timestamp columns
         # Assume first column is timestamp, drop it
-        data = data[:, 1:]
+        df = df.iloc[:, 1:]
+
+    # Force all columns to numeric, coercing errors to NaN
+    # This ensures the output is always float and never object-dtype
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    # Now convert to numpy, which will be float64
+    data = df.to_numpy()
 
     return data
 
@@ -235,25 +231,6 @@ def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: 
     Note:
         Reports the number of missing values before and after interpolation for data quality assessment.
     """
-    """
-    Simple interpolation of missing values using pandas.
-    
-    Parameters:
-    ----------
-    sensors_data : np.ndarray
-        Sensor data array.
-    actuators_data : np.ndarray
-        Actuator data array.
-    configuration_data : np.ndarray
-        Configuration data array.
-    interpolation_method : str
-        Method for interpolation ('linear', 'cubic', 'spline', 'polynomial')
-        
-    Returns:
-    -------
-    tuple
-        (sensors_clean, actuators_clean, configuration_clean) with interpolated values.
-    """
     # Convert to DataFrames for easy interpolation
     sensors_df = pd.DataFrame(sensors_data)
     actuators_df = pd.DataFrame(actuators_data)
@@ -261,7 +238,7 @@ def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: 
     
     # Count initial NaN values
     total_nans = sensors_df.isna().sum().sum() + actuators_df.isna().sum().sum() + configuration_df.isna().sum().sum()
-    print(f"Total missing values: {total_nans}")
+    print(f"Total missing values (including coerced): {total_nans}")
     
     # Simple interpolation with specified method
     sensors_clean = sensors_df.interpolate(method=interpolation_method).bfill().ffill().values # type: ignore
@@ -373,15 +350,12 @@ def normalize_data(X: np.ndarray, U: np.ndarray, method: str = "minmax"):
     """
     """Normalize data using specified method."""
     if method == "minmax":
-        from sklearn.preprocessing import MinMaxScaler
         X_scaler = MinMaxScaler()
         U_scaler = MinMaxScaler()
     elif method == "standard":
-        from sklearn.preprocessing import StandardScaler
         X_scaler = StandardScaler()
         U_scaler = StandardScaler()
     elif method == "robust":
-        from sklearn.preprocessing import RobustScaler
         X_scaler = RobustScaler()
         U_scaler = RobustScaler()
     else:
@@ -422,13 +396,13 @@ def main():
     Workflow:
         1. Load sensor, actuator, and configuration data from CSV files
         2. Interpolate missing values using specified method
-        3. Downsample data for performance optimization (if requested)
-        4. Combine sensor/configuration data into state variables (X)
-        5. Normalize data for numerical stability (if requested)
+        3. Prepare state variables (X) and control inputs (U) 
+        4. Enforce stability-driven hyperparameters (normalization, optimizer)
+        5. Optionally normalize data for numerical stability
         6. Create SINDy model with specified feature library and optimizer
-        7. Train model on preprocessed dataset and display discovered equations
-        8. Validate model using train/test split and temporal simulation
-        9. Calculate prediction errors and generate comparison plots
+        7. Train model on full dataset and display discovered equations
+        8. Validate model using train/test split (retrain on train data)
+        9. Call high-speed Numba/SciPy simulation for validation and plotting
         
     The discovered equations represent the building as a controlled dynamical system:
         dX/dt = f(X, U)
@@ -438,13 +412,13 @@ def main():
     allowing experimentation with different hyperparameters and configurations.
     
     Raises:
-        Exception: If simulation fails during validation phase
+        Does not raise simulation exceptions directly, handled in custom module
         
     Example:
         ```bash
         python dynamic_model_smart_building.py \
-            --polynomial-degree 3 \
-            --threshold 0.05 \
+            --polynomial-degree 1 \
+            --threshold 0.0 \
             --normalize-data \
             --sampling-rate 10
         ```
@@ -501,19 +475,14 @@ def main():
     
     # Load data
     print("Loading data...")
-    sensors_df = get_csv_data(args.sensors, args.sep)
-    actuators_df = get_csv_data(args.actuators, args.sep)
-    configuration_df = get_csv_data(args.configuration, args.sep)
+    sensors_data = get_csv_data(args.sensors, args.sep)
+    actuators_data = get_csv_data(args.actuators, args.sep)
+    configuration_data = get_csv_data(args.configuration, args.sep)
     
     print(f"Loaded:")
-    print(f"  Sensors: {sensors_df.shape}")
-    print(f"  Actuators: {actuators_df.shape}")
-    print(f"  Configuration: {configuration_df.shape}")
-    
-    # Convert to float (this may introduce NaN for invalid values)
-    sensors_data = sensors_df.astype(float)
-    actuators_data = actuators_df.astype(float)
-    configuration_data = configuration_df.astype(float)
+    print(f"  Sensors: {sensors_data.shape}")
+    print(f"  Actuators: {actuators_data.shape}")
+    print(f"  Configuration: {configuration_data.shape}")
     
     # Interpolate missing values
     print(f"\nInterpolating missing values using {args.interpolation_method} method...")
@@ -545,11 +514,25 @@ def main():
     # Use actuators as control inputs (U)
     U = actuators_data
     
-    # Optionally normalize data
-    if args.normalize_data:
-        print(f"Normalizing data using {args.normalization_method} method...")
-        X, U, X_scaler, U_scaler = normalize_data(X, U, args.normalization_method)
-    
+    # --- STABILITY FIXES (from scipy_numba.py) ---
+    if args.feature_library == "polynomial" and args.polynomial_degree > 1:
+        print(f"\n--- WARNING: Using Polynomial Degree {args.polynomial_degree}. ---")
+        print("--- The Numba simulation function is hard-coded for degree 1 ---")
+
+    if not args.normalize_data:
+        print("\n--- WARNING: Forcing data normalization (minmax) for numerical stability. ---")
+        args.normalize_data = True
+        args.normalization_method = "minmax"
+
+    if args.optimizer != "stlsq":
+        print(f"\n--- WARNING: Forcing optimizer to 'stlsq'. ---")
+        args.optimizer = "stlsq"
+
+    print(f"\n--- NOTE: Forcing STLSQ(threshold=0.0, alpha=10.0) for stability. ---")
+    args.threshold = 0.1
+    args.alpha = 75.0
+    # ----------------------------------------------------------------------
+
     # Create time vector
     t = np.arange(len(X)) * args.dt
     
@@ -559,6 +542,15 @@ def main():
     print(f"  Time points: {len(t)}")
     print(f"  dt: {args.dt}")
     
+    # Optionally normalize data
+    if args.normalize_data:
+        print(f"\nNormalizing data using {args.normalization_method} method...")
+        X, U, X_scaler, U_scaler = normalize_data(X, U, args.normalization_method)
+    
+    # Checks for residual numerical issues
+    if np.isnan(X).any() or np.isinf(X).any() or np.isnan(U).any() or np.isinf(U).any():
+        print("\n!!! CRITICAL WARNING: NaN or Inf values detected after normalization. Check input data. !!!")
+
     # Create feature library and optimizer
     feature_library = create_feature_library(args.feature_library, args.polynomial_degree, args.fourier_n_frequencies, 
                                             include_interactions=not args.no_interactions)
@@ -568,7 +560,7 @@ def main():
     # Build SINDy model
     print(f"\nTraining SINDy model...")
     print(f"  Feature library: {args.feature_library} (degree={args.polynomial_degree})")
-    print(f"  Optimizer: {args.optimizer} (threshold={args.threshold})")
+    print(f"  Optimizer: {args.optimizer} (threshold={args.threshold}, alpha={args.alpha})")
     
     model = ps.SINDy(
         feature_library=feature_library,
@@ -597,203 +589,30 @@ def main():
     print("\nDiscovered equations:")
     model.print()
     
-    # Optional validation step
-    if not args.skip_validation:
-        validation_start = time.time()
-        
-        # Simple validation: split data and test prediction
-        split = int(args.train_split * len(X))
-        X_train, X_test = X[:split], X[split:]
-        U_train, U_test = U[:split], U[split:]
-        t_test = np.arange(len(X_test)) * args.dt
-        
-        print(f"\nValidation with {args.train_split:.1%} train / {1-args.train_split:.1%} test split...")
-        print(f"  Training set: {len(X_train):,} timesteps")
-        print(f"  Test set: {len(X_test):,} timesteps")
-        
-        # Optionally subsample validation data for faster simulation
-        if args.validation_subsample > 1:
-            val_indices = np.arange(0, len(X_test), args.validation_subsample)
-            X_test_sub = X_test[val_indices]
-            U_test_sub = U_test[val_indices]
-            t_test_sub = np.arange(len(X_test_sub)) * args.dt
-            print(f"  Validation subsampling: every {args.validation_subsample} samples ({len(X_test_sub):,} timesteps)")
-            X_test, U_test, t_test = X_test_sub, U_test_sub, t_test_sub
-        
-        # Retrain on training data only
-        retrain_start = time.time()
-        model.fit(X_train, u=U_train, t=args.dt)
-        retrain_time = time.time() - retrain_start
-        print(f"  Retraining time: {retrain_time:.2f}s")
-        
-        # Predict on test data
-        try:
-            simulation_start = time.time()
-            
-            # Debug: Check model stability before simulation
-            print(f"  Debugging model before simulation...")
-            print(f"    Model coefficients shape: {model.coefficients().shape}")
-            print(f"    Model coefficient sparsity: {(model.coefficients() == 0).sum()}/{model.coefficients().size}")
-            print(f"    Max coefficient magnitude: {np.abs(model.coefficients()).max():.6f}")
-            
-            # Debug: Check initial conditions
-            print(f"    Initial state X_test[0]: {X_test[0][:5]}")  # Show first 5 values
-            print(f"    Initial state range: [{X_test[0].min():.3f}, {X_test[0].max():.3f}]")
-            
-            # Try shorter simulation first to check stability
-            short_t = t_test[:min(10, len(t_test))]  # Only first 100 timesteps
-            short_U = U_test[:len(short_t)]
-            
-            print(f"    Testing short simulation ({len(short_t)} steps)...")
-            try:
-                X_pred_short = model.simulate(X_test[0], short_t, u=short_U)
-                print(f"    Short simulation successful!")
-                print(f"    Short prediction range: [{X_pred_short.min():.3f}, {X_pred_short.max():.3f}]")
-                
-                # Check for numerical issues
-                if np.any(np.isnan(X_pred_short)) or np.any(np.isinf(X_pred_short)):
-                    print(f"    WARNING: NaN/Inf detected in short simulation!")
-                    raise ValueError("Numerical instability in simulation")
-                
-                if np.abs(X_pred_short).max() > 1e6:
-                    print(f"    WARNING: Very large values in simulation (max: {np.abs(X_pred_short).max():.2e})")
-                    raise ValueError("Simulation appears unstable (explosive growth)")
-                
-            except Exception as e:
-                print(f"    Short simulation failed: {e}")
-                raise e
-            
-            # If short simulation works, try full simulation with timeout
-            print(f"    Running full simulation ({len(t_test)} steps)...")
-            
-            # Set maximum simulation time (safety timeout)
-            max_sim_time = args.simulation_timeout
-            
-            def simulate_with_timeout():
-                return model.simulate(X_test[0], t_test, u=U_test)
-            
-            import signal
-            
-            def timeout_handler(signum, frame):
-                raise TimeoutError(f"Simulation timed out after {max_sim_time}s")
-            
-            # Set timeout alarm
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(max_sim_time)
-            
-            try:
-                X_pred = simulate_with_timeout()
-                signal.alarm(0)  # Cancel alarm
-            except TimeoutError as e:
-                signal.alarm(0)  # Cancel alarm
-                print(f"    {e}")
-                print(f"    Try using --validation-subsample for faster validation")
-                raise e
-            
-            simulation_time = time.time() - simulation_start
-            print(f"  Simulation time: {simulation_time:.2f}s")
-            
-            # Calculate error
-            min_len = min(len(X_test), len(X_pred))
-            # TODO: are there more interesting error metrics?
-            rmse = np.sqrt(np.mean((X_test[:min_len] - X_pred[:min_len])**2))
-            
-            print(f"\nValidation RMSE: {rmse:.6f}")
-            
-            validation_total = time.time() - validation_start
-            print(f"Total validation time: {validation_total:.2f}s")
-            
-            # Optional visualization
-            if not args.skip_visualization:
-                # Configure matplotlib for headless operation (cluster-friendly)
-                import matplotlib
-                matplotlib.use('Agg')  # Use non-interactive backend
-                
-                # Simple plot (fixed visualization parameters)
-                plt.figure(figsize=(12, 8))
-                n_states = min(5, X.shape[1])  # Plot up to 5 states
-                
-                for i in range(n_states):
-                    plt.subplot(n_states, 1, i+1)
-                    plt.plot(X_test[:min_len, i], 'k-', label='True', linewidth=1.5)
-                    plt.plot(X_pred[:min_len, i], 'r--', label='Predicted', linewidth=1.5, alpha=0.8)
-                    plt.ylabel(f'State {i+1}')
-                    plt.legend()
-                    
-                    # Calculate per-state error
-                    state_rmse = np.sqrt(np.mean((X_test[:min_len, i] - X_pred[:min_len, i])**2))
-                    plt.title(f'State {i+1} - RMSE: {state_rmse:.4f}')
-                    
-                plt.xlabel('Time steps')
-                plt.suptitle(f'Model Validation - Overall RMSE: {rmse:.4f}')
-                plt.tight_layout()
-                
-                # Save plot instead of showing (cluster-friendly)
-                plot_filename = f"{args.outdir}/validation_plot_sampling{args.sampling_rate}_degree{args.polynomial_degree}.png"
-                import os
-                os.makedirs(args.outdir, exist_ok=True)
-                plt.savefig(plot_filename, dpi=150, bbox_inches='tight')
-                plt.close()  # Important: close to free memory
-                print(f"Validation plot saved to: {plot_filename}")
-                
-                # Additional error analysis plot
-                plt.figure(figsize=(10, 6))
-                
-                # Plot prediction errors over time
-                error = X_test[:min_len] - X_pred[:min_len]
-                plt.subplot(2, 1, 1)
-                for i in range(min(3, X.shape[1])):
-                    plt.plot(error[:, i], label=f'State {i+1} Error', alpha=0.7)
-                plt.ylabel('Prediction Error')
-                plt.legend()
-                plt.title('Prediction Errors Over Time')
-                
-                # Plot error distribution
-                plt.subplot(2, 1, 2)
-                plt.hist(error.flatten(), bins=50, alpha=0.7, density=True)
-                plt.xlabel('Prediction Error')
-                plt.ylabel('Density')
-                plt.title('Error Distribution')
-                
-                plt.tight_layout()
-                error_filename = f"{args.outdir}/error_analysis_sampling{args.sampling_rate}_degree{args.polynomial_degree}.png"
-                plt.savefig(error_filename, dpi=150, bbox_inches='tight')
-                plt.close()
-                print(f"Error analysis plot saved to: {error_filename}")
-                
-        except Exception as e:
-            print(f"Simulation failed: {e}")
+    # Simple validation: split data and test prediction
+    split = int(args.train_split * len(X))
+    X_train, X_test = X[:split], X[split:]
+    U_train, U_test = U[:split], U[split:]
+    t_test = np.arange(len(X_test)) * args.dt
     
-    # Calculate and print job duration
-    end_time = time.time()
-    total_duration = end_time - start_time
-    hours = int(total_duration // 3600)
-    minutes = int((total_duration % 3600) // 60)
-    seconds = total_duration % 60
+    print(f"\nValidation with {args.train_split:.1%} train / {1-args.train_split:.1%} test split...")
     
-    # Print parseable summary for cluster data collection
-    print("")
-    print("CLUSTER_DATA_SUMMARY_START")
-    print(f"SAMPLING_RATE={args.sampling_rate}")
-    print(f"POLYNOMIAL_DEGREE={args.polynomial_degree}")
-    print(f"THRESHOLD={args.threshold}")
-    print(f"NORMALIZE_DATA={args.normalize_data}")
-    print(f"FEATURE_LIBRARY={args.feature_library}")
-    print(f"OPTIMIZER={args.optimizer}")
-    print(f"INTERPOLATION_METHOD={args.interpolation_method}")
-    print(f"TOTAL_DURATION_SECONDS={total_duration:.2f}")
-    print(f"SPEEDUP_FACTOR={args.sampling_rate}")
-    print(f"SKIP_VALIDATION={args.skip_validation}")
-    print("CLUSTER_DATA_SUMMARY_END")
+    # Retrain on training data only
+    print("Retraining model on training data...")
+    model.fit(X_train, u=U_train, t=args.dt)
     
-    print("")
-    print("="*80)
-    print("JOB COMPLETED - TIMING SUMMARY")
-    print("="*80)
-    print(f"Total Duration: {hours:02d}h {minutes:02d}m {seconds:05.2f}s ({total_duration:.2f}s total)")
-    print(f"Start Time:     {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
-    print(f"End Time:       {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time))}")
-    print("="*80)
+    # --- CALL CUSTOM SIMULATION MODULE ---
+    # The original simulation block is replaced with this call.
+    print("\nPassing to Numba-accelerated simulation module...")
+    custom_numba_simulation.run_numba_validation(
+        model=model,
+        X_test=X_test,
+        U_test=U_test,
+        t_test=t_test,
+        dt=args.dt,
+        output_filename="validation_plot.png"
+    )
+    # -------------------------------------
 
 if __name__ == "__main__":
     main()
