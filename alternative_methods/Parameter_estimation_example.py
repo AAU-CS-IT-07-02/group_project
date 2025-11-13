@@ -1,3 +1,12 @@
+"""
+## Parameter estimation
+ 
+This is a procedure where model parameters are estimated in order to make sure that selected model predicts output (e.g. internal temperature)
+that is comparable to measured values.
+Here we use the minimize function.
+ 
+"""
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -27,6 +36,24 @@ Q_in_series[50:150] = 5000  # heater ON for some period
 Q_in_series[200:250] = 3000  # smaller heating later
 
 def rc_model(T_in, T_out, Q_in, R, C, dt):
+    """
+      Computes the temperature update for a first-order RC thermal model.
+
+    The governing equation is
+        dT_in/dt = ((T_out - T_in) / R + Q_in) / C
+    
+    Args:
+        T_in: indoor (or system) temperature at the current time step.
+        T_out: outdoor (or ambient) temperature.
+        Q_in: internal heat gain or heat input (in watts or equivalent units).
+        R: thermal resistance between indoor and outdoor environments.
+        C: thermal capacitance of the indoor environment or system.
+        dt: time step for the numerical update.
+
+    Returns:
+        the updated indoor temperature T_in + dT
+        
+    """
     dT = ((T_out - T_in)/R + Q_in) * dt / C
     return T_in + dT
 
@@ -56,6 +83,23 @@ plt.legend()
 plt.show()
 
 def simulate(T0, T_out_series, Q_in_series, R, C, dt):
+    """
+    Simulates the temperature evolution over time using a first-order RC thermal model.
+
+    The governing equation is
+        dT_in/dt = ((T_out - T_in) / R + Q_in) / C
+    
+    Args:
+        T0: initial indoor (or system) temperature at the start of the simulation.
+        T_out_series: sequence or array of outdoor (ambient) temperature values over time.
+        Q_in_series: sequence or array of internal heat gains or inputs over time.
+        R: thermal resistance between indoor and outdoor environments.
+        C: thermal capacitance of the indoor environment or system.
+        dt: time step for the numerical update.
+
+    Returns:
+        an array of simulated indoor temperatures over time T_sim
+    """
     T_sim = [T0]
     for k in range(1, len(T_out_series)):
         T_next = rc_model(T_sim[-1], T_out_series[k-1], Q_in_series[k-1], R, C, dt)
@@ -63,6 +107,24 @@ def simulate(T0, T_out_series, Q_in_series, R, C, dt):
     return np.array(T_sim)
 
 def cost(params, T_measured, T0, T_out_series, Q_in_series, dt):
+    """
+    Computes the sum of squared errors (SSE) between measured and simulated temperatures 
+    for a first-order RC thermal model.
+
+    The governing equation used in the simulation is
+        dT_in/dt = ((T_out - T_in) / R + Q_in) / C
+    
+    Args:
+        params: tuple or list containing the thermal parameters [R, C].
+        T_measured: array of measured indoor (or system) temperatures over time.
+        T0: initial indoor (or system) temperature at the start of the simulation.
+        T_out_series: sequence or array of outdoor (ambient) temperature values over time.
+        Q_in_series: sequence or array of internal heat gains or inputs over time.
+        dt: time step for the numerical update.
+
+    Returns:
+        the total sum of squared errors between simulated and measured temperatures
+    """
     R, C = params
     T_sim = simulate(T0, T_out_series, Q_in_series, R, C, dt)
     error = T_sim - T_measured
