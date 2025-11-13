@@ -15,9 +15,12 @@ Features:
 - Filters the data given specific rooms (It can be either no filtering, one room or multiple ones)
 - Filters the data based on a specified start and end time (eg. --start-time "3/1/2023 08:00")
 
-Usage:
+Previous usage:
+python split_by_rooms_category_timeframe.py --data ../../Database/AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv --sensors configs/R_A_All_May/sensors.txt --actuators configs/R_A_All_May/actuators.txt --config configs/R_A_All_May/configuration.txt --outdir out/R_A_All_May --timestamp-col timestamp --rooms configs/R_A_All_May/rooms.txt --timeframe configs/R_A_All_May/timeframe.txt 
+
+Sample Usage:
     python3 split_by_category.py   
-        --data ../../AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv   
+        --data ../../Database/AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv
         --sensors sensors.txt   
         --actuators actuators.txt   
         --config configurations.txt  

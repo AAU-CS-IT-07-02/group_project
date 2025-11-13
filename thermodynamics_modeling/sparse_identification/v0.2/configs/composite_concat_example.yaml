@@ -1,0 +1,28 @@
+# Composite Library Example 1: Concatenated Polynomial + Fourier
+# This combines polynomial nonlinearities with periodic patterns
+# Good for: Buildings with strong daily/seasonal cycles + nonlinear thermal behavior
+
+# Data file paths
+sensors: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_sensors.csv"
+actuators: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_actuators.csv"
+configuration: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_configuration.csv"
+
+# Composite feature library setup
+feature_libraries: ["polynomial", "fourier"]
+library_combination_strategy: "concat"  # Side-by-side feature concatenation
+
+# Per-library parameters
+library_parameters: 
+  polynomial:
+    degree: 2
+    include_interaction: true
+  fourier:
+    n_frequencies: 3
+
+# Training settings optimized for composite libraries
+polynomial_degree: 2        # Fallback for single library mode
+fourier_n_frequencies: 3    # Fallback for single library mode
+threshold: 0.05            # Lower threshold for more features
+train_split: 0.8           # More training data for complex model
+normalize_data: true       # Recommended for mixed feature types
+normalization_method: "standard"
