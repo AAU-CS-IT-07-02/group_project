@@ -7,7 +7,7 @@ import neuromancer
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer.problem import Problem
-from NODE import build_model  # Your original script's function
+from NODE import build_model, get_colums  # Your original script's function
 
 # =============================
 # 1. Load CSV_TEST and select columns
@@ -16,24 +16,7 @@ from NODE import build_model  # Your original script's function
 CSV_TEST = "./test_data.csv"
 df = pd.read_csv(CSV_TEST, parse_dates=['timestamp']).set_index('timestamp')
 
-# Combine solar columns if needed
-df["solar_sum"] = df[[
-    "Outdoor:Solar__direct_radiation__east_façade",
-    "Outdoor:Solar__direct_radiation__south_façade",
-    "Outdoor:Solar__direct_radiation__west_façade"
-]].sum(axis=1)
-
-# Target, inputs, disturbances
-Y_df = df[["RoomA:Sensor__room_temperature"]]
-U_df = df[[
-    "RoomA:Radiator__control_signal__motor_valve",
-    "RoomA:Damper__position",
-    "RoomA:AHU__active"
-]]
-D_df = df[[
-    "Outdoor:Temperature_air", "solar_sum",
-    "RoomA_is_occupied", "RoomA:Window__opened_closed"
-]]
+Y_df, U_df, D_df = get_colums(df)
 
 # =============================
 # 2. Load normalization stats from training
@@ -54,7 +37,7 @@ D = ((D_df.values - muD_vals) / stdD_vals).astype(np.float32)
 # =============================
 # 3. Choose custom window
 # =============================
-start_idx = -2000  # last 500 steps
+start_idx = -500  # last 500 steps
 end_idx = None    # or specify end index
 H = 16            # horizon (same as training)
 
@@ -103,45 +86,75 @@ true_traj = (true_vals * stdY_vals) + muY_vals
 # =============================
 # 6. Compute metrics
 # =============================
-pred_flat = pred_traj.reshape(-1)
-true_flat = true_traj.reshape(-1)
+# pred_flat = pred_traj.reshape(-1)
+# true_flat = true_traj.reshape(-1)
+#
+#
+# # Remove NaNs from both arrays
+# mask = ~np.isnan(true_flat) & ~np.isnan(pred_flat)
+# true_clean = true_flat[mask]
+# pred_clean = pred_flat[mask]
+#
+# # Compute metrics on cleaned data
+# rmse = np.sqrt(((pred_clean - true_clean) ** 2).mean())
+# mae = mean_absolute_error(true_clean, pred_clean)
+# r2 = r2_score(true_clean, pred_clean)
+#
+# print(f"RMSE: {rmse:.4f}")
+# print(f"MAE: {mae:.4f}")
+# print(f"R²: {r2:.4f}")
+
+room_names = ["RoomA", "RoomB", "RoomC", "RoomD", "RoomE", "RoomF"]
+for i, room in enumerate(room_names):
+    pred_flat = pred_traj[:, :, i].reshape(-1)
+    true_flat = true_traj[:, :, i].reshape(-1)
 
 
 # Remove NaNs from both arrays
-mask = ~np.isnan(true_flat) & ~np.isnan(pred_flat)
-true_clean = true_flat[mask]
-pred_clean = pred_flat[mask]
+    mask = ~np.isnan(true_flat) & ~np.isnan(pred_flat)
+    true_clean = true_flat[mask]
+    pred_clean = pred_flat[mask]
 
 # Compute metrics on cleaned data
-rmse = np.sqrt(((pred_clean - true_clean) ** 2).mean())
-mae = mean_absolute_error(true_clean, pred_clean)
-r2 = r2_score(true_clean, pred_clean)
+    rmse = np.sqrt(((pred_clean - true_clean) ** 2).mean())
+    mae = mean_absolute_error(true_clean, pred_clean)
+    r2 = r2_score(true_clean, pred_clean)
+    print(f"{room} -> RMSE: {rmse:.4f}, MAE: {mae:.4f}, R²: {r2:.4f}")
 
-print(f"RMSE: {rmse:.4f}")
-print(f"MAE: {mae:.4f}")
-print(f"R²: {r2:.4f}")
+
 
 # =============================
 # 7. Plot results
 # =============================
-plt.figure(figsize=(10, 5))
-plt.plot(true_flat, label='True', color='cyan')
-plt.plot(pred_flat, label='Predicted', color='magenta', linestyle='--')
-plt.title('True vs Predicted Trajectory')
-plt.xlabel('Time step')
-plt.ylabel('Temperature')
-plt.legend()
+plt.figure(figsize=(12, 6))
+for i, room in enumerate(room_names):
+    pred_flat = pred_traj[:,:, i].reshape(-1)
+    true_flat = true_traj[:,:, i].reshape(-1)
+    print(pred_traj.shape)
+    print(true_traj.shape)
+
+    plt.subplot(6, 1, i+1)
+    plt.plot(pred_flat, label='True', color='cyan')
+    plt.plot(true_flat, label='Predicted', color='magenta', linestyle='--')
+    plt.title(f'{room} Temperature')
+    plt.xlabel('Time step')
+    plt.ylabel('Temperature')
+    plt.legend()
 plt.tight_layout()
-plt.savefig('custom_window_comparison.png')
+plt.savefig('multi_room_comparison.png')
 plt.show()
 
 # Error distribution
-errors = pred_flat - true_flat
 plt.figure(figsize=(8, 4))
-plt.hist(errors, bins=50, color='orange', edgecolor='black')
-plt.title('Prediction Error Distribution')
-plt.xlabel('Error')
-plt.ylabel('Frequency')
+colors = ['red', 'blue', 'orange', 'grey', 'yellow', 'purple']
+for i, room in enumerate(room_names):
+    errors = pred_traj[:, :, i].reshape(-1) - true_traj[:, :, i].reshape(-1)
+
+    plt.subplot(6, 1, i+1)
+    plt.hist(errors, bins=50, color=colors[i], edgecolor='black')
+    plt.title(f'Prediction Error Distribution for {room}')
+    plt.xlabel('Error')
+    plt.ylabel('Frequency')
 plt.tight_layout()
 plt.savefig('custom_window_error_distribution.png')
 plt.show()

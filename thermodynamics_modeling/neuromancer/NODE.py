@@ -21,6 +21,61 @@ from neuromancer.problem import Problem
 from neuromancer.trainer import Trainer
 from neuromancer.loggers import BasicLogger
 
+def get_colums(df):
+    # === Combine solar columns ===
+    df["solar_sum"] = df[[
+        "Outdoor:Solar__direct_radiation__east_façade",
+        "Outdoor:Solar__direct_radiation__south_façade",
+        "Outdoor:Solar__direct_radiation__west_façade"
+    ]].sum(axis=1)
+
+    # === Select subsets ===
+    Y_df = df[[
+        "RoomA:Sensor__room_temperature",
+        "RoomB:Sensor__room_temperature",
+        "RoomC:Sensor__room_temperature",
+        "RoomD:Sensor__room_temperature",
+        "RoomE:Sensor__room_temperature",
+        "RoomF:Sensor__room_temperature",
+    ]]
+    U_df = df[[
+        "RoomA:Radiator__control_signal__motor_valve",
+        "RoomA:Damper__position",
+        "RoomA:AHU__active",
+        "RoomB:Radiator__control_signal__motor_valve",
+        "RoomB:Damper__position",
+        "RoomB:AHU__active",
+        "RoomC:Radiator__control_signal__motor_valve",
+        "RoomC:Damper__position",
+        "RoomC:AHU__active",
+        "RoomD:Radiator__control_signal__motor_valve",
+        "RoomD:Damper__position",
+        "RoomD:AHU__active",
+        "RoomE:Radiator__control_signal__motor_valve",
+        "RoomE:Damper__position",
+        "RoomE:AHU__active",
+        "RoomF:Radiator__control_signal__motor_valve",
+        "RoomF:Damper__position",
+        "RoomF:AHU__active",
+    ]]
+    D_df = df[[
+        "Outdoor:Temperature_air", 
+        "solar_sum",
+        "RoomA_is_occupied", 
+        "RoomA:Window__opened_closed",
+        "RoomB_is_occupied", 
+        "RoomB:Window__opened_closed",
+        "RoomC_is_occupied", 
+        "RoomC:Window__opened_closed",
+        "RoomD_is_occupied", 
+        "RoomD:Window__opened_closed",
+        "RoomE_is_occupied", 
+        "RoomE:Window__opened_closed",
+        "RoomF_is_occupied", 
+        "RoomF:Window__opened_closed",
+    ]]
+
+    return Y_df, U_df, D_df
 
 # =======================================================
 # 1. Data utilities (get_data, get_splits)
@@ -45,24 +100,7 @@ def get_data(csv_path, dt_minutes=5, H=12):
             .resample(f'{dt_minutes}min').mean()
             .interpolate(limit_direction='both'))
 
-    # === Combine solar columns ===
-    df["solar_sum"] = df[[
-        "Outdoor:Solar__direct_radiation__east_façade",
-        "Outdoor:Solar__direct_radiation__south_façade",
-        "Outdoor:Solar__direct_radiation__west_façade"
-    ]].sum(axis=1)
-
-    # === Select subsets ===
-    Y_df = df[["RoomA:Sensor__room_temperature"]]
-    U_df = df[[
-        "RoomA:Radiator__control_signal__motor_valve",
-        "RoomA:Damper__position",
-        "RoomA:AHU__active"
-    ]]
-    D_df = df[[
-        "Outdoor:Temperature_air", "solar_sum",
-        "RoomA_is_occupied", "RoomA:Window__opened_closed"
-    ]]
+    Y_df, U_df, D_df = get_colums(df)
 
     # === Normalization ===
     def zscore_fit(x):
