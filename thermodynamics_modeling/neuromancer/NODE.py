@@ -26,7 +26,16 @@ from neuromancer.loggers import BasicLogger
 # 1. Data utilities (get_data, get_splits)
 # =======================================================
 def get_data(csv_path, dt_minutes=5, H=12):
-    """Load, process, normalize, and window the building dataset."""
+    """Load, preprocess, normalize, and window building dataset.
+
+    Args:
+        csv_path (str): Path to the CSV file containing building data.
+        dt_minutes (int): Resampling interval in minutes.
+        H (int): Sequence length (horizon).
+
+    Returns:
+        dict: Dictionary containing sequences (xn, Y, U, D), timestep in seconds, and normalization stats.
+    """    
     dt_sec = dt_minutes * 60.0
 
     # === Load and preprocess ===
@@ -100,8 +109,19 @@ def get_data(csv_path, dt_minutes=5, H=12):
     }
 
 
-def get_splits(csv_path, dt_minutes=5, H=12, batch_size=64, split_ratio=0.8):
-    """Create train/dev/test loaders."""
+def get_splits(csv_path, dt_minutes=5, H=12, batch_size=64, split_ratio=0.5):
+    """Create train, dev, and test splits for the dataset.
+
+    Args:
+        csv_path (str): Path to the CSV file.
+        dt_minutes (int): Resampling interval in minutes.
+        H (int): Sequence length.
+        batch_size (int): Batch size for DataLoader.
+        split_ratio (float): Ratio for train/dev split.
+
+    Returns:
+        tuple: (train_loader, dev_loader, test_data, dt_sec, stats)
+    """    
     data = get_data(csv_path, dt_minutes, H)
     Xn, Ys, Us, Ds = data["xn"], data["Y"], data["U"], data["D"]
 
@@ -125,7 +145,18 @@ def get_splits(csv_path, dt_minutes=5, H=12, batch_size=64, split_ratio=0.8):
 # 2. Model definition
 # =======================================================
 def build_model(ny, nu, nd, H, dt_sec):
-    """Construct NODE-based model (encoder, dynamics, decoder)."""
+    """Construct NODE-based model including encoder, dynamics, and decoder.
+
+    Args:
+        ny (int): Number of output variables.
+        nu (int): Number of input variables.
+        nd (int): Number of disturbance variables.
+        H (int): Prediction horizon.
+        dt_sec (float): Integration timestep in seconds.
+
+    Returns:
+        tuple: (encode_sym, dynamics_model)
+    """    
     torch.manual_seed(0)
 
     n_latent = 4  # latent state space dimension
@@ -165,8 +196,18 @@ def build_model(ny, nu, nd, H, dt_sec):
 # 3. Training setup
 # =======================================================
 def train_model(train_loader, dev_loader, test_data, encode_sym, dynamics_model):
-    """Train Neuromancer NODE model."""
-    
+    """Train Neuromancer NODE model using provided data loaders.
+
+    Args:
+        train_loader (DataLoader): Training data loader.
+        dev_loader (DataLoader): Development data loader.
+        test_data (dict): Test dataset.
+        encode_sym (Node): Encoder node.
+        dynamics_model (System): NODE dynamics system.
+
+    Returns:
+        Problem: Trained Neuromancer problem instance.
+    """    
 
     # %% Constraints + losses:
     y = variable("Y")                      # observed
@@ -203,7 +244,7 @@ def train_model(train_loader, dev_loader, test_data, encode_sym, dynamics_model)
         optimizer,
         patience=100,
         warmup=50,
-        epochs=10,
+        epochs=5,
         eval_metric="dev_loss",
         train_metric="train_loss",
         dev_metric="dev_loss",
@@ -220,10 +261,11 @@ def train_model(train_loader, dev_loader, test_data, encode_sym, dynamics_model)
 # 4. Main script
 # =======================================================
 if __name__ == "__main__":
-    CSV = "../../AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv"
+    # CSV = "../../AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv"
+    CSV = "./train_data.csv"
 
     # === Load dataset and splits ===
-    H = 48       # sequence length (1 hour horizon)
+    H = 16       
     batch_size = 64
     train_loader, dev_loader, test_data, dt_sec, stats = get_splits(
         CSV, dt_minutes=5, H=H, batch_size=batch_size

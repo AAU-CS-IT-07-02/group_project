@@ -1,0 +1,148 @@
+import pandas as pd
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_absolute_error, r2_score
+import neuromancer
+from neuromancer.constraint import variable
+from neuromancer.loss import PenaltyLoss
+from neuromancer.problem import Problem
+from NODE import build_model  # Your original script's function
+
+# =============================
+# 1. Load CSV_TEST and select columns
+# =============================
+# CSV_TEST = "../../AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv"  # <-- Change this to your file path
+CSV_TEST = "./test_data.csv"
+df = pd.read_csv(CSV_TEST, parse_dates=['timestamp']).set_index('timestamp')
+
+# Combine solar columns if needed
+df["solar_sum"] = df[[
+    "Outdoor:Solar__direct_radiation__east_façade",
+    "Outdoor:Solar__direct_radiation__south_façade",
+    "Outdoor:Solar__direct_radiation__west_façade"
+]].sum(axis=1)
+
+# Target, inputs, disturbances
+Y_df = df[["RoomA:Sensor__room_temperature"]]
+U_df = df[[
+    "RoomA:Radiator__control_signal__motor_valve",
+    "RoomA:Damper__position",
+    "RoomA:AHU__active"
+]]
+D_df = df[[
+    "Outdoor:Temperature_air", "solar_sum",
+    "RoomA_is_occupied", "RoomA:Window__opened_closed"
+]]
+
+# =============================
+# 2. Load normalization stats from training
+# =============================
+# Replace these with your saved stats or recompute
+muY_vals = np.array([Y_df.mean().values])
+stdY_vals = np.array([Y_df.std().replace(0, 1e-6).values])
+muU_vals = np.array([U_df.mean().values])
+stdU_vals = np.array([U_df.std().replace(0, 1e-6).values])
+muD_vals = np.array([D_df.mean().values])
+stdD_vals = np.array([D_df.std().replace(0, 1e-6).values])
+
+# Normalize
+Y = ((Y_df.values - muY_vals) / stdY_vals).astype(np.float32)
+U = ((U_df.values - muU_vals) / stdU_vals).astype(np.float32)
+D = ((D_df.values - muD_vals) / stdD_vals).astype(np.float32)
+
+# =============================
+# 3. Choose custom window
+# =============================
+start_idx = -2000  # last 500 steps
+end_idx = None    # or specify end index
+H = 16            # horizon (same as training)
+
+Y_seq = torch.tensor(Y[start_idx:end_idx], dtype=torch.float32).unsqueeze(0)
+U_seq = torch.tensor(U[start_idx:end_idx], dtype=torch.float32).unsqueeze(0)
+D_seq = torch.tensor(D[start_idx:end_idx], dtype=torch.float32).unsqueeze(0)
+xn = Y_seq[:, :1, :]  # initial condition
+
+test_data = {"xn": xn, "Y": Y_seq, "U": U_seq, "D": D_seq, "name": "custom_test"}
+
+ny, nu, nd = Y_seq.shape[-1], U_seq.shape[-1], D_seq.shape[-1]
+dt_sec = 5 * 60  # 5-minute sampling
+
+# =============================
+# 4. Rebuild model and load weights
+# =============================
+encode_sym, dynamics_model = build_model(ny, nu, nd, H, dt_sec)
+
+# Create Problem object
+y = variable("Y")
+yhat = variable("y")
+reference_loss = 5.*(yhat == y)^2
+onestep_loss = 1.*(yhat[:, 1, :] == y[:, 1, :])^2
+loss = PenaltyLoss([reference_loss, onestep_loss], [])
+problem = Problem([encode_sym, dynamics_model], loss)
+
+torch.serialization.add_safe_globals([neuromancer.problem.Problem])
+
+problem = torch.load("./test/best_model.pth", map_location=torch.device('cpu'), weights_only=False)
+
+problem.nodes[1].nsteps = Y_seq.shape[1]
+
+# =============================
+# 5. Run inference
+# =============================
+with torch.no_grad():
+    outputs = problem(test_data)
+
+yhat = outputs['custom_test_y'].cpu().numpy()
+true_vals = Y_seq.cpu().numpy()
+
+# Denormalize
+pred_traj = (yhat * stdY_vals) + muY_vals
+true_traj = (true_vals * stdY_vals) + muY_vals
+
+# =============================
+# 6. Compute metrics
+# =============================
+pred_flat = pred_traj.reshape(-1)
+true_flat = true_traj.reshape(-1)
+
+
+# Remove NaNs from both arrays
+mask = ~np.isnan(true_flat) & ~np.isnan(pred_flat)
+true_clean = true_flat[mask]
+pred_clean = pred_flat[mask]
+
+# Compute metrics on cleaned data
+rmse = np.sqrt(((pred_clean - true_clean) ** 2).mean())
+mae = mean_absolute_error(true_clean, pred_clean)
+r2 = r2_score(true_clean, pred_clean)
+
+print(f"RMSE: {rmse:.4f}")
+print(f"MAE: {mae:.4f}")
+print(f"R²: {r2:.4f}")
+
+# =============================
+# 7. Plot results
+# =============================
+plt.figure(figsize=(10, 5))
+plt.plot(true_flat, label='True', color='cyan')
+plt.plot(pred_flat, label='Predicted', color='magenta', linestyle='--')
+plt.title('True vs Predicted Trajectory')
+plt.xlabel('Time step')
+plt.ylabel('Temperature')
+plt.legend()
+plt.tight_layout()
+plt.savefig('custom_window_comparison.png')
+plt.show()
+
+# Error distribution
+errors = pred_flat - true_flat
+plt.figure(figsize=(8, 4))
+plt.hist(errors, bins=50, color='orange', edgecolor='black')
+plt.title('Prediction Error Distribution')
+plt.xlabel('Error')
+plt.ylabel('Frequency')
+plt.tight_layout()
+plt.savefig('custom_window_error_distribution.png')
+plt.show()
+
