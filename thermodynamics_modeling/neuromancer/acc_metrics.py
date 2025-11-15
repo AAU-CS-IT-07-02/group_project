@@ -1,3 +1,4 @@
+import yaml
 import pandas as pd
 import numpy as np
 import torch
@@ -7,14 +8,16 @@ import neuromancer
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer.problem import Problem
-from NODE import build_model, get_colums  # Your original script's function
+from NODE import build_model, get_colums 
+
+with open('config.yml', 'r') as file:
+    config = yaml.safe_load(file)
 
 # =============================
-# 1. Load CSV_TEST and select columns
+# 1. Load CSV and select columns
 # =============================
-# CSV_TEST = "../../AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv"  # <-- Change this to your file path
-CSV_TEST = "./test_data.csv"
-df = pd.read_csv(CSV_TEST, parse_dates=['timestamp']).set_index('timestamp')
+CSV = config["test_data"]
+df = pd.read_csv(CSV, parse_dates=['timestamp']).set_index('timestamp')
 
 Y_df, U_df, D_df = get_colums(df)
 
@@ -66,7 +69,7 @@ problem = Problem([encode_sym, dynamics_model], loss)
 
 torch.serialization.add_safe_globals([neuromancer.problem.Problem])
 
-problem = torch.load("./test/best_model.pth", map_location=torch.device('cpu'), weights_only=False)
+problem = torch.load("./out/best_model.pth", map_location=torch.device('cpu'), weights_only=False)
 
 problem.nodes[1].nsteps = Y_seq.shape[1]
 
@@ -86,25 +89,7 @@ true_traj = (true_vals * stdY_vals) + muY_vals
 # =============================
 # 6. Compute metrics
 # =============================
-# pred_flat = pred_traj.reshape(-1)
-# true_flat = true_traj.reshape(-1)
-#
-#
-# # Remove NaNs from both arrays
-# mask = ~np.isnan(true_flat) & ~np.isnan(pred_flat)
-# true_clean = true_flat[mask]
-# pred_clean = pred_flat[mask]
-#
-# # Compute metrics on cleaned data
-# rmse = np.sqrt(((pred_clean - true_clean) ** 2).mean())
-# mae = mean_absolute_error(true_clean, pred_clean)
-# r2 = r2_score(true_clean, pred_clean)
-#
-# print(f"RMSE: {rmse:.4f}")
-# print(f"MAE: {mae:.4f}")
-# print(f"R²: {r2:.4f}")
-
-room_names = ["RoomA", "RoomB", "RoomC", "RoomD", "RoomE", "RoomF"]
+room_names = config["rooms"]
 for i, room in enumerate(room_names):
     pred_flat = pred_traj[:, :, i].reshape(-1)
     true_flat = true_traj[:, :, i].reshape(-1)
@@ -141,7 +126,7 @@ for i, room in enumerate(room_names):
     plt.ylabel('Temperature')
     plt.legend()
 plt.tight_layout()
-plt.savefig('multi_room_comparison.png')
+plt.savefig('./out/multi_room_comparison.png')
 plt.show()
 
 # Error distribution
@@ -156,6 +141,6 @@ for i, room in enumerate(room_names):
     plt.xlabel('Error')
     plt.ylabel('Frequency')
 plt.tight_layout()
-plt.savefig('custom_window_error_distribution.png')
+plt.savefig('./out/custom_window_error_distribution.png')
 plt.show()
 
