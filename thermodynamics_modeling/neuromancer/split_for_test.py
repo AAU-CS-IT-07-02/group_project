@@ -4,7 +4,7 @@ import pandas as pd
 # =============================
 # 1. Load original dataset
 # =============================
-CSV = "../../AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv"
+CSV = "../../Database/AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv"
 df = pd.read_csv(CSV, parse_dates=['timestamp'])
 
 
