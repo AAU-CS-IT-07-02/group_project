@@ -1,0 +1,7 @@
+Heating:Control__setpoint_water_temperature__supply
+RoomA:Room__active
+RoomB:Room__active
+RoomC:Room__active
+RoomD:Room__active
+RoomE:Room__active
+RoomF:Room__active

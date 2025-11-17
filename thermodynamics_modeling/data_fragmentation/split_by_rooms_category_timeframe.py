@@ -18,6 +18,8 @@ Features:
 Previous usage:
 python split_by_rooms_category_timeframe.py --data ../../Database/AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv --sensors configs/R_A_All_May/sensors.txt --actuators configs/R_A_All_May/actuators.txt --config configs/R_A_All_May/configuration.txt --outdir out/R_A_All_May --timestamp-col timestamp --rooms configs/R_A_All_May/rooms.txt --timeframe configs/R_A_All_May/timeframe.txt 
 
+python split_by_rooms_category_timeframe.py --data ../../Database/AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv --sensors configs/R_A_All_May_reduced/sensors.txt --actuators configs/R_A_All_May_reduced/actuators.txt --config configs/R_A_All_May_reduced/configuration.txt --outdir out/R_A_All_May_reduced --timestamp-col timestamp --rooms configs/R_A_All_May_reduced/rooms.txt --timeframe configs/R_A_All_May_reduced/timeframe.txt 
+
 Sample Usage:
     python3 split_by_category.py   
         --data ../../Database/AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv
