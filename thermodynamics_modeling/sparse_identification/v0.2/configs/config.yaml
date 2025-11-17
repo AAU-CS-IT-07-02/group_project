@@ -34,7 +34,7 @@ normalize_data: true          # Normalize data before training
 normalization_method: "minmax" # Options: minmax, standard, robust
 
 # Variable naming options
-named_variables: true         # Use actual CSV column names in SINDy equations instead of generic x0, x1, etc.
+named_variables: false         # Use actual CSV column names in SINDy equations instead of generic x0, x1, etc.
 
 # Feature library options (single library mode)
 feature_library: "polynomial"  # Options: polynomial, fourier, identity

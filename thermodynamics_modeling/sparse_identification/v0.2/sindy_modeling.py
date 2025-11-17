@@ -411,6 +411,31 @@ def validate_model(model: ps.SINDy, X_train: np.ndarray, X_test: np.ndarray,
     retrain_time = time.time() - retrain_start
     print(f"  Retraining time: {retrain_time:.2f}s")
     
+    import pysindy as ps
+    import sympy as sp
+    import jax.numpy as jnp
+    from jax import jit
+    import diffrax
+
+    # Suppose your PySINDy model is already fit:
+    # model = ps.SINDy(...)
+    # model.fit(x, t=dt)
+
+    eqs = model.equations()
+    n_states = len(eqs)
+    x = sp.symbols(f'x0:{n_states}')
+    rhs_jax = sp.lambdify(x, eqs, modules='jax')
+
+    @jit
+    def f_jax(t, y, args=None):
+        return jnp.array(rhs_jax(*y))
+
+    term = diffrax.ODETerm(f_jax)
+    solver = diffrax.Dopri5()
+    y0 = jnp.array([1.0] * n_states)
+    sol = diffrax.diffeqsolve(term, solver, t0=0, t1=10, dt0=0.01, y0=y0)
+
+    
     # Predict on test data with safety checks
     try:
         simulation_start = time.time()
