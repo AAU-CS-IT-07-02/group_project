@@ -1,3 +1,26 @@
+
+"""
+# Notes
+Observation arrays follow the following axis conventions: (spatial_1, ..., spatial_n, time, coordinate). For ODEs (no spatial dependence), that means the first axis is time, the second axis is coordinate. pysindy also requires the timepoints of the observations. 
+While there are several ways to pass this information, the most straightfowrads is a 1-D array of timepoints.
+
+t, x, y = gen_data1()
+X = np.stack((x, y), axis=-1)  # First column is x, second is y
+print(f"Data is shape: {X.shape}")
+print(f"time is shape: {t.shape}")
+Data is shape: (50, 2)
+time is shape: (50,)
+"""
+"""
+# TODO:
+- Rethink the state space + observations
+"""
+
+"""
+Command reference:
+python dynamic_model_smart_building.py --sensors ../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_sensors.csv --actuators ../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_actuators.csv --configuration ../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_configuration.csv
+"""
+
 """
 Dynamic Modeling of Smart Building Systems using Sparse Identification of Nonlinear Dynamics.
 
@@ -11,7 +34,7 @@ Key Features:
     - Multiple interpolation methods for missing sensor values  
     - Configurable feature libraries (polynomial, Fourier, identity)
     - Flexible normalization and optimization strategies
-    - Temporal validation with predictive simulation
+    - Temporal validation with predictive simulation (via custom_numba_simulation)
     - Comprehensive hyperparameter tuning capabilities
 
 The discovered models serve as the foundation for Model Predictive Control (MPC)
@@ -20,6 +43,7 @@ safety verification in smart building applications.
 
 Example Usage:
     ```bash
+    # Standard usage
     python dynamic_model_smart_building.py \
         --sensors data_sensors.csv \
         --actuators data_actuators.csv \
@@ -33,16 +57,25 @@ Project: Intelligent Building Management System through Data-Driven Thermodynami
 """
 
 import argparse
+import threading
+import time
 
 import pandas as pd
 
 from contextlib import contextmanager
 from copy import copy
 
+import matplotlib
+matplotlib.use('Agg')  # Set non-interactive backend for server-side plotting
 import matplotlib.pyplot as plt
 import numpy as np
-
 import pysindy as ps
+import psutil
+
+# --- NEW IMPORTS (from scipy_numba.py) ---
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
+import custom_numba_simulation
+# ----------------------------------------
 
 
 def parse_args() -> argparse.Namespace:
@@ -77,24 +110,34 @@ def parse_args() -> argparse.Namespace:
                    help="Method for interpolating missing values")
     p.add_argument("--include-configuration", action="store_true", 
                    help="Include configuration variables in state vector (default: sensors only)")
-    p.add_argument("--dt", type=float, default=0.1, 
+    p.add_argument("--dt", type=float, default=5, 
                    help="Time step between measurements")
     
     # SINDy model hyperparameters
-    p.add_argument("--polynomial-degree", type=int, default=2, 
-                   help="Degree of polynomial features for SINDy")
+    p.add_argument("--polynomial-degree", type=int, default=1,
+                   help="Degree of polynomial features for SINDy. (Note: Numba simulation is hard-coded for degree 1)")
     p.add_argument("--threshold", type=float, default=0.1, 
                    help="Sparsity threshold for STLSQ optimizer")
     p.add_argument("--alpha", type=float, default=0.0, 
                    help="Regularization parameter for STLSQ optimizer")
     p.add_argument("--max-iter", type=int, default=20, 
                    help="Maximum iterations for STLSQ optimizer")
-    p.add_argument("--normalize-columns", action="store_true", 
+    p.add_argument("--normalize-columns", action="store_true",
                    help="Normalize feature matrix columns")
+    p.add_argument("--coefficient-threshold", type=float, default=1000.0, 
+                   help="Maximum allowed coefficient magnitude (for stability)")
     
     # Training/validation hyperparameters
     p.add_argument("--train-split", type=float, default=0.7, 
                    help="Fraction of data to use for training (rest for validation)")
+    p.add_argument("--skip-validation", action="store_true", 
+                   help="Skip validation step after training")
+    p.add_argument("--skip-visualization", action="store_true", 
+                   help="Skip plotting and visualization")
+    p.add_argument("--validation-subsample", type=int, default=1, 
+                   help="Subsample validation data for faster simulation (1=full, 10=every 10th sample)")
+    p.add_argument("--simulation-timeout", type=int, default=60, 
+                   help="Maximum time (seconds) to wait for simulation before timeout")
     
     # Data normalization options
     p.add_argument("--normalize-data", action="store_true", 
@@ -107,6 +150,8 @@ def parse_args() -> argparse.Namespace:
                    help="Type of feature library to use")
     p.add_argument("--fourier-n-frequencies", type=int, default=2, 
                    help="Number of frequencies for Fourier library")
+    p.add_argument("--no-interactions", action="store_true", 
+                   help="Disable interaction terms in feature library (default: include interactions)")
     
     # Optimizer options
     p.add_argument("--optimizer", default="stlsq", choices=["stlsq", "lasso", "ridge"], 
@@ -114,40 +159,54 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--lasso-alpha", type=float, default=0.01, 
                    help="Alpha parameter for Lasso optimizer")
     
+    # System monitoring options
+    p.add_argument("--monitor-interval", type=int, default=20, 
+                   help="Interval in seconds for logging system usage (CPU, RAM, etc). Set to 0 to disable monitoring.")
+    
+    # Data sampling options for performance optimization
+    p.add_argument("--sampling-rate", type=int, default=1, 
+                   help="Downsample data by taking every N-th sample (1=no sampling, 10=10x speedup)")
+    
     return p.parse_args()
 
-def get_csv_data(file_path: str, delimiter: str = ',', skip_header: bool = False, drop_timestamps: bool = True) -> np.ndarray:
+def get_csv_data(file_path: str, delimiter: str = ',', drop_timestamps: bool = True) -> np.ndarray:
     """
-    Load a CSV file into a NumPy array.
+    Load a CSV file into a NumPy array, forcing float64 dtype.
 
-    Parameters:
+    This function uses pandas to read the CSV, which allows it to
+    robustly handle non-numeric values (e.g., 'OFF', 'AUTO'). These
+    values are coerced to `np.nan` and can be fixed later by interpolation.
+
+    Parameters
     ----------
     file_path : str
         Path to the CSV file.
     delimiter : str, optional
         Column separator (default is ',').
-    skip_header : bool, optional
-        If True, skip the header row (default is False).
+    drop_timestamps : bool, optional
+        If True, assumes the first column is a timestamp and drops it.
+        Defaults to True.
 
     Returns:
     ------
     np.ndarray
-        Data from the CSV as a NumPy array.
+        Data from the CSV as a float64 NumPy array.
     """
     # Read CSV using pandas for flexibility
     df = pd.read_csv(file_path, sep=delimiter, encoding='utf-8-sig', engine='python')
 
-    # Optionally drop header row
-    if skip_header:
-        data = df.to_numpy()
-    else:
-        # Keep header as first row if needed
-        data = df.to_numpy()
-        
     if drop_timestamps:
         # TODO: think about a better way to identify timestamp columns
         # Assume first column is timestamp, drop it
-        data = data[:, 1:]
+        df = df.iloc[:, 1:]
+
+    # Force all columns to numeric, coercing errors to NaN
+    # This ensures the output is always float and never object-dtype
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    # Now convert to numpy, which will be float64
+    data = df.to_numpy()
 
     return data
 
@@ -172,25 +231,6 @@ def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: 
     Note:
         Reports the number of missing values before and after interpolation for data quality assessment.
     """
-    """
-    Simple interpolation of missing values using pandas.
-    
-    Parameters:
-    ----------
-    sensors_data : np.ndarray
-        Sensor data array.
-    actuators_data : np.ndarray
-        Actuator data array.
-    configuration_data : np.ndarray
-        Configuration data array.
-    interpolation_method : str
-        Method for interpolation ('linear', 'cubic', 'spline', 'polynomial')
-        
-    Returns:
-    -------
-    tuple
-        (sensors_clean, actuators_clean, configuration_clean) with interpolated values.
-    """
     # Convert to DataFrames for easy interpolation
     sensors_df = pd.DataFrame(sensors_data)
     actuators_df = pd.DataFrame(actuators_data)
@@ -198,7 +238,7 @@ def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: 
     
     # Count initial NaN values
     total_nans = sensors_df.isna().sum().sum() + actuators_df.isna().sum().sum() + configuration_df.isna().sum().sum()
-    print(f"Total missing values: {total_nans}")
+    print(f"Total missing values (including coerced): {total_nans}")
     
     # Simple interpolation with specified method
     sensors_clean = sensors_df.interpolate(method=interpolation_method).bfill().ffill().values # type: ignore
@@ -211,7 +251,7 @@ def process_data_simple_interpolation(sensors_data: np.ndarray, actuators_data: 
     
     return sensors_clean, actuators_clean, configuration_clean
 
-def create_feature_library(library_type: str, polynomial_degree: int = 2, fourier_n_frequencies: int = 2):
+def create_feature_library(library_type: str, polynomial_degree: int = 2, fourier_n_frequencies: int = 2, include_interactions: bool = True):
     """
     Create a PySINDy feature library for building dynamics modeling.
     
@@ -224,6 +264,7 @@ def create_feature_library(library_type: str, polynomial_degree: int = 2, fourie
         library_type: Type of feature library ('polynomial', 'fourier', 'identity')
         polynomial_degree: Maximum polynomial degree for nonlinear features
         fourier_n_frequencies: Number of frequency components for periodic patterns
+        include_interactions: Whether to include interaction terms between variables
         
     Returns:
         PySINDy feature library object
@@ -233,7 +274,7 @@ def create_feature_library(library_type: str, polynomial_degree: int = 2, fourie
     """
     """Create feature library based on specified type."""
     if library_type == "polynomial":
-        return ps.PolynomialLibrary(degree=polynomial_degree)
+        return ps.PolynomialLibrary(degree=polynomial_degree, include_interaction=include_interactions)
     elif library_type == "fourier":
         return ps.FourierLibrary(n_frequencies=fourier_n_frequencies)
     elif library_type == "identity":
@@ -309,15 +350,12 @@ def normalize_data(X: np.ndarray, U: np.ndarray, method: str = "minmax"):
     """
     """Normalize data using specified method."""
     if method == "minmax":
-        from sklearn.preprocessing import MinMaxScaler
         X_scaler = MinMaxScaler()
         U_scaler = MinMaxScaler()
     elif method == "standard":
-        from sklearn.preprocessing import StandardScaler
         X_scaler = StandardScaler()
         U_scaler = StandardScaler()
     elif method == "robust":
-        from sklearn.preprocessing import RobustScaler
         X_scaler = RobustScaler()
         U_scaler = RobustScaler()
     else:
@@ -327,6 +365,26 @@ def normalize_data(X: np.ndarray, U: np.ndarray, method: str = "minmax"):
     U_normalized = U_scaler.fit_transform(U)
     
     return X_normalized, U_normalized, X_scaler, U_scaler
+
+def downsample_data(sensors_data: np.ndarray, actuators_data: np.ndarray, configuration_data: np.ndarray, sampling_rate: int = 1) -> tuple:
+    """
+    Downsample building data for faster training by taking every N-th sample.
+    
+    Parameters:
+        sensors_data: Sensor measurements array
+        actuators_data: Actuator commands array
+        configuration_data: Configuration data array
+        sampling_rate: Take every N-th sample (1=no downsampling, 10=10x speedup)
+        
+    Returns:
+        tuple: (sensors_downsampled, actuators_downsampled, configuration_downsampled)
+    """
+    if sampling_rate <= 1:
+        return sensors_data, actuators_data, configuration_data
+    
+    # Take every N-th sample
+    indices = np.arange(0, len(sensors_data), sampling_rate)
+    return sensors_data[indices], actuators_data[indices], configuration_data[indices]
 
 def main():
     """
@@ -339,11 +397,12 @@ def main():
         1. Load sensor, actuator, and configuration data from CSV files
         2. Interpolate missing values using specified method
         3. Prepare state variables (X) and control inputs (U) 
-        4. Optionally normalize data for numerical stability
-        5. Create SINDy model with specified feature library and optimizer
-        6. Train model on full dataset and display discovered equations
-        7. Validate model using train/test split and temporal simulation
-        8. Calculate prediction errors and generate comparison plots
+        4. Enforce stability-driven hyperparameters (normalization, optimizer)
+        5. Optionally normalize data for numerical stability
+        6. Create SINDy model with specified feature library and optimizer
+        7. Train model on full dataset and display discovered equations
+        8. Validate model using train/test split (retrain on train data)
+        9. Call high-speed Numba/SciPy simulation for validation and plotting
         
     The discovered equations represent the building as a controlled dynamical system:
         dX/dt = f(X, U)
@@ -353,34 +412,77 @@ def main():
     allowing experimentation with different hyperparameters and configurations.
     
     Raises:
-        Exception: If simulation fails during validation phase
+        Does not raise simulation exceptions directly, handled in custom module
         
     Example:
         ```bash
         python dynamic_model_smart_building.py \
-            --polynomial-degree 3 \
-            --threshold 0.05 \
+            --polynomial-degree 1 \
+            --threshold 0.0 \
             --normalize-data \
-            --train-split 0.8
+            --sampling-rate 10
         ```
     """
     args = parse_args()
 
+    # Record start time for job duration
+    import time
+    start_time = time.time()
+    
+    # Print comprehensive parameter summary for cluster data collection
+    print("="*80)
+    print("PYSINDY BUILDING DYNAMICS MODELING - JOB CONFIGURATION")
+    print("="*80)
+    print(f"Data Files:")
+    print(f"  Sensors:       {args.sensors}")
+    print(f"  Actuators:     {args.actuators}")
+    print(f"  Configuration: {args.configuration}")
+    print(f"  CSV Separator: {args.sep}")
+    print(f"")
+    print(f"Data Processing:")
+    print(f"  Interpolation Method:  {args.interpolation_method}")
+    print(f"  Include Configuration: {args.include_configuration}")
+    print(f"  Sampling Rate:         {args.sampling_rate} ({'no downsampling' if args.sampling_rate <= 1 else f'{args.sampling_rate}x speedup'})")
+    print(f"  Normalize Data:        {args.normalize_data}")
+    print(f"  Normalization Method:  {args.normalization_method}")
+    print(f"  Time Step (dt):        {args.dt}")
+    print(f"")
+    print(f"SINDy Model Configuration:")
+    print(f"  Feature Library:       {args.feature_library}")
+    print(f"  Polynomial Degree:     {args.polynomial_degree}")
+    print(f"  Fourier Frequencies:   {args.fourier_n_frequencies}")
+    print(f"  Include Interactions:  {not args.no_interactions}")
+    print(f"  Optimizer:             {args.optimizer}")
+    print(f"  Sparsity Threshold:    {args.threshold}")
+    print(f"  Regularization Alpha:  {args.alpha}")
+    print(f"  Max Iterations:        {args.max_iter}")
+    print(f"  Normalize Columns:     {args.normalize_columns}")
+    print(f"  Lasso Alpha:           {args.lasso_alpha}")
+    print(f"")
+    print(f"Training/Validation:")
+    print(f"  Train Split:           {args.train_split}")
+    print(f"  Skip Validation:       {args.skip_validation}")
+    print(f"  Skip Visualization:    {args.skip_visualization}")
+    print(f"")
+    print(f"System:")
+    print(f"  Monitor Interval:      {args.monitor_interval}s")
+    print(f"  Output Directory:      {args.outdir}")
+    print("="*80)
+    print("")
+
+    # Start system monitoring
+    start_monitoring(args.monitor_interval)
+    
     # Load data
     print("Loading data...")
-    sensors_df = get_csv_data(args.sensors, args.sep)
-    actuators_df = get_csv_data(args.actuators, args.sep)
-    configuration_df = get_csv_data(args.configuration, args.sep)
+    sensors_data = get_csv_data(args.sensors, args.sep)
+    actuators_data = get_csv_data(args.actuators, args.sep)
+    configuration_data = get_csv_data(args.configuration, args.sep)
     
     print(f"Loaded:")
-    print(f"  Sensors: {sensors_df.shape}")
-    print(f"  Actuators: {actuators_df.shape}")
-    print(f"  Configuration: {configuration_df.shape}")
-    
-    # Convert to float (this may introduce NaN for invalid values)
-    sensors_data = sensors_df.astype(float)
-    actuators_data = actuators_df.astype(float)
-    configuration_data = configuration_df.astype(float)
+    print(f"  Sensors: {sensors_data.shape}")
+    print(f"  Actuators: {actuators_data.shape}")
+    print(f"  Configuration: {configuration_data.shape}")
     
     # Interpolate missing values
     print(f"\nInterpolating missing values using {args.interpolation_method} method...")
@@ -388,21 +490,53 @@ def main():
         sensors_data, actuators_data, configuration_data, args.interpolation_method
     )
     
+    # Downsample data for faster training
+    original_size = len(sensors_data)
+    if args.sampling_rate > 1:
+        print(f"\nDownsampling data (every {args.sampling_rate} samples)...")
+        sensors_data, actuators_data, configuration_data = downsample_data(
+            sensors_data, actuators_data, configuration_data, args.sampling_rate
+        )
+        print(f"  Original size: {original_size:,} timesteps")
+        print(f"  Downsampled size: {len(sensors_data):,} timesteps")
+        print(f"  Speedup: {args.sampling_rate}x")
+    else:
+        print(f"No downsampling applied (using full dataset)")
+    
     # Combine data based on configuration
     if args.include_configuration:
         X = np.hstack([sensors_data, configuration_data])
-        print("Using sensors + configuration as state variables")
+        print(f"\nUsing sensors + configuration as state variables")
     else:
         X = sensors_data
-        print("Using sensors only as state variables")
+        print(f"\nUsing sensors only as state variables")
     
     # Use actuators as control inputs (U)
     U = actuators_data
     
+    # --- STABILITY FIXES (from scipy_numba.py) ---
+    if args.feature_library == "polynomial" and args.polynomial_degree > 1:
+        print(f"\n--- WARNING: Using Polynomial Degree {args.polynomial_degree}. ---")
+        print("--- The Numba simulation function is hard-coded for degree 1 ---")
+
+    if not args.normalize_data:
+        print("\n--- WARNING: Forcing data normalization (minmax) for numerical stability. ---")
+        args.normalize_data = True
+        args.normalization_method = "minmax"
+
+    if args.optimizer != "stlsq":
+        print(f"\n--- WARNING: Forcing optimizer to 'stlsq'. ---")
+        args.optimizer = "stlsq"
+
+    print(f"\n--- NOTE: Forcing STLSQ(threshold=0.0, alpha=10.0) for stability. ---")
+    args.threshold = 0.1
+    args.alpha = 75.0
+    # ----------------------------------------------------------------------
+
     # Create time vector
     t = np.arange(len(X)) * args.dt
     
-    print(f"\nPrepared for SINDy:")
+    print(f"\nFinal data prepared for SINDy:")
     print(f"  States X: {X.shape}")
     print(f"  Controls U: {U.shape}")
     print(f"  Time points: {len(t)}")
@@ -413,15 +547,20 @@ def main():
         print(f"\nNormalizing data using {args.normalization_method} method...")
         X, U, X_scaler, U_scaler = normalize_data(X, U, args.normalization_method)
     
+    # Checks for residual numerical issues
+    if np.isnan(X).any() or np.isinf(X).any() or np.isnan(U).any() or np.isinf(U).any():
+        print("\n!!! CRITICAL WARNING: NaN or Inf values detected after normalization. Check input data. !!!")
+
     # Create feature library and optimizer
-    feature_library = create_feature_library(args.feature_library, args.polynomial_degree, args.fourier_n_frequencies)
+    feature_library = create_feature_library(args.feature_library, args.polynomial_degree, args.fourier_n_frequencies, 
+                                            include_interactions=not args.no_interactions)
     optimizer = create_optimizer(args.optimizer, args.threshold, args.alpha, args.max_iter, 
                                 args.normalize_columns, args.lasso_alpha)
     
     # Build SINDy model
     print(f"\nTraining SINDy model...")
     print(f"  Feature library: {args.feature_library} (degree={args.polynomial_degree})")
-    print(f"  Optimizer: {args.optimizer} (threshold={args.threshold})")
+    print(f"  Optimizer: {args.optimizer} (threshold={args.threshold}, alpha={args.alpha})")
     
     model = ps.SINDy(
         feature_library=feature_library,
@@ -430,6 +569,21 @@ def main():
     
     # Train the model
     model.fit(X, u=U, t=args.dt)
+    
+    # Check model stability
+    coeffs = model.coefficients()
+    max_coeff = np.abs(coeffs).max()
+    print(f"\nModel stability check:")
+    print(f"  Max coefficient magnitude: {max_coeff:.3f}")
+    print(f"  Coefficient threshold: {args.coefficient_threshold}")
+    
+    if max_coeff > args.coefficient_threshold:
+        print(f"  WARNING: Large coefficients detected! Model may be unstable.")
+        print(f"  Suggestions:")
+        print(f"    1. Increase sparsity threshold: --threshold {args.threshold * 2}")
+        print(f"    2. Add regularization: --alpha {max(0.1, args.alpha * 2)}")
+        print(f"    3. Force normalization: --force-normalization")
+        print(f"    4. Reduce polynomial degree: --polynomial-degree {max(1, args.polynomial_degree - 1)}")
     
     # Print discovered equations
     print("\nDiscovered equations:")
@@ -444,34 +598,21 @@ def main():
     print(f"\nValidation with {args.train_split:.1%} train / {1-args.train_split:.1%} test split...")
     
     # Retrain on training data only
+    print("Retraining model on training data...")
     model.fit(X_train, u=U_train, t=args.dt)
     
-    # Predict on test data
-    try:
-        X_pred = model.simulate(X_test[0], t_test, u=U_test)
-        
-        # Calculate error
-        min_len = min(len(X_test), len(X_pred))
-        # TODO: are there more interesting error metrics?
-        rmse = np.sqrt(np.mean((X_test[:min_len] - X_pred[:min_len])**2))
-        
-        print(f"\nValidation RMSE: {rmse:.6f}")
-        
-        # Simple plot (fixed visualization parameters)
-        # TODO: plot all states on a multiplot figure
-        plt.figure(figsize=(12, 6))
-        for i in range(min(3, X.shape[1])):  # Plot first 3 states
-            plt.subplot(3, 1, i+1)
-            plt.plot(X_test[:min_len, i], 'k-', label='True')
-            plt.plot(X_pred[:min_len, i], 'r--', label='Predicted')
-            plt.ylabel(f'State {i+1}')
-            plt.legend()
-        plt.xlabel('Time steps')
-        plt.tight_layout()
-        plt.show()
-        
-    except Exception as e:
-        print(f"Simulation failed: {e}")
+    # --- CALL CUSTOM SIMULATION MODULE ---
+    # The original simulation block is replaced with this call.
+    print("\nPassing to Numba-accelerated simulation module...")
+    custom_numba_simulation.run_numba_validation(
+        model=model,
+        X_test=X_test,
+        U_test=U_test,
+        t_test=t_test,
+        dt=args.dt,
+        output_filename="validation_plot.png"
+    )
+    # -------------------------------------
 
 if __name__ == "__main__":
     main()

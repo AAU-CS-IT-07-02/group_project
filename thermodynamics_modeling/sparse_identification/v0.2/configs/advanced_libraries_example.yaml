@@ -1,0 +1,37 @@
+# Advanced Composite Library Example: All Library Types
+# This demonstrates using advanced PySINDy libraries for specialized applications
+
+# Data file paths
+sensors: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_sensors.csv"
+actuators: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_actuators.csv"
+configuration: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_configuration.csv"
+
+# Advanced composite setup with multiple library types
+feature_libraries: ["polynomial", "fourier", "identity", "pde"]
+library_combination_strategy: "concat"
+
+# Detailed per-library parameters
+library_parameters:
+  polynomial:
+    degree: 2
+    include_interaction: true
+  fourier:
+    n_frequencies: 3
+  # identity has no parameters
+  pde:
+    derivative_order: 1
+    # For building thermal PDEs - spatial derivatives for heat diffusion
+  # custom:
+  #   functions: ["lambda x: np.exp(x)", "lambda x: np.log(np.abs(x) + 1e-8)"]  
+  #   function_names: ["exp", "log"]
+
+# Settings for advanced libraries
+threshold: 0.02            # Lower threshold for more complex features
+normalize_data: true       # Important for mixed library types
+coefficient_threshold: 200  # Conservative for stability
+train_split: 0.8
+sampling_rate: 2           # Modest speedup
+
+# Advanced optimizer for complex feature spaces
+optimizer: "lasso"         # Good for high-dimensional feature spaces
+lasso_alpha: 0.01
