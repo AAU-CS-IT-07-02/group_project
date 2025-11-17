@@ -44,6 +44,8 @@ observations: [
     "RoomF:Radiator__control_signal__motor_valve",
     "RoomF:Damper__position",
     "RoomF:AHU__active",
+    "Heating:Control__setpoint_water_temperature__supply",
+    "Ventilation:Sensor__air_temperature__supply"
 ]
 
 disturbances: [
