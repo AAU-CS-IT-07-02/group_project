@@ -1,17 +1,21 @@
-outdir: "./out"
+outdir: "./out_300"
 
 train_data: "./dataset_split/train_data.csv"
 test_data: "./dataset_split/test_data.csv"
 
+system:
+  num_workers: 6
+  num_threads: 12
+
 model:
   patience: 100
   warmup: 50
-  epochs: 15
+  epochs: 300
 
 outdoor: [
-    "Outdoor:Solar__direct_radiation__east_façade",
-    "Outdoor:Solar__direct_radiation__south_façade",
-    "Outdoor:Solar__direct_radiation__west_façade"
+    # "Outdoor:Solar__direct_radiation__east_façade",
+    # "Outdoor:Solar__direct_radiation__south_façade",
+    # "Outdoor:Solar__direct_radiation__west_façade"
 ]
 
 rooms: ["RoomA", "RoomB", "RoomC", "RoomD", "RoomE", "RoomF"]

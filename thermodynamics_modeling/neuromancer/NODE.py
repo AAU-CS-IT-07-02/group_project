@@ -26,6 +26,30 @@ from neuromancer.loggers import BasicLogger
 with open('config.yml', 'r') as file:
     config = yaml.safe_load(file)
 
+# ----------------------------
+# System / performance setup
+# - allow controlling DataLoader workers and CPU threading
+# - read optional overrides from `config.yml` under `system`
+# ----------------------------
+system_cfg = config.get("system", {}) if isinstance(config, dict) else {}
+# sensible defaults
+cpu_count = os.cpu_count() or 1
+DEFAULT_NUM_WORKERS = system_cfg.get("num_workers", max(0, cpu_count // 2))
+DEFAULT_NUM_THREADS = system_cfg.get("num_threads", max(1, cpu_count))
+
+# Set environment variables for common BLAS/OpenMP backends
+os.environ.setdefault("OMP_NUM_THREADS", str(DEFAULT_NUM_THREADS))
+os.environ.setdefault("MKL_NUM_THREADS", str(DEFAULT_NUM_THREADS))
+
+# Tell PyTorch how many intra-op threads to use (CPU only)
+try:
+    torch.set_num_threads(int(DEFAULT_NUM_THREADS))
+    torch.set_num_interop_threads(max(1, int(DEFAULT_NUM_THREADS // 2)))
+except Exception:
+    # If torch isn't available at import time or doesn't support these calls,
+    # just continue without crashing.
+    pass
+
 def get_colums(df):
     # === Combine solar columns ===
     df["solar_sum"] = df[config['outdoor']].sum(axis=1)
@@ -107,7 +131,7 @@ def get_data(csv_path, dt_minutes=5, H=12):
     }
 
 
-def get_splits(csv_path, dt_minutes=5, H=12, batch_size=64, split_ratio=0.5):
+def get_splits(csv_path, dt_minutes=5, H=12, batch_size=64, split_ratio=0.5, num_workers=None):
     """Create train, dev, and test splits for the dataset.
 
     Args:
@@ -130,8 +154,34 @@ def get_splits(csv_path, dt_minutes=5, H=12, batch_size=64, split_ratio=0.5):
     train_ds = DictDataset(train, name="train")
     dev_ds   = DictDataset(dev, name="dev")
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=train_ds.collate_fn)
-    dev_loader   = DataLoader(dev_ds, batch_size=batch_size, shuffle=False, collate_fn=dev_ds.collate_fn)
+    # Determine num_workers: prefer argument, then config/system default, then safe fallback
+    if num_workers is None:
+        num_workers = system_cfg.get("num_workers", DEFAULT_NUM_WORKERS)
+
+    # For Windows, num_workers > 0 will spawn subprocesses for the DataLoader
+    persistent = True if num_workers and num_workers > 0 else False
+
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=train_ds.collate_fn,
+        num_workers=int(num_workers),
+        persistent_workers=persistent,
+        pin_memory=False,
+        prefetch_factor=2,
+    )
+
+    dev_loader = DataLoader(
+        dev_ds,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=dev_ds.collate_fn,
+        num_workers=int(max(0, int(num_workers)//2)),
+        persistent_workers=(True if num_workers and num_workers > 1 else False),
+        pin_memory=False,
+        prefetch_factor=2,
+    )
 
     test_data = {k: torch.tensor(v, dtype=torch.float32) for k, v in dev.items()}
     test_data["name"] = "test"

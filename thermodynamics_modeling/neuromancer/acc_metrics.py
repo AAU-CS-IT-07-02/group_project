@@ -69,7 +69,7 @@ problem = Problem([encode_sym, dynamics_model], loss)
 
 torch.serialization.add_safe_globals([neuromancer.problem.Problem])
 
-problem = torch.load("./out/best_model.pth", map_location=torch.device('cpu'), weights_only=False)
+problem = torch.load("./out_300/best_model.pth", map_location=torch.device('cpu'), weights_only=False)
 
 problem.nodes[1].nsteps = Y_seq.shape[1]
 
