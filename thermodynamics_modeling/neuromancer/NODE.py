@@ -336,23 +336,23 @@ if __name__ == "__main__":
         axe.legend(fontsize=8)
         axe.tick_params(labelbottom=False, labelsize=9)
 
-    # # --- Inputs
-    # u_labels = [f'$u_{k}$' for k in range(nu)]
-    # for row, (u, label) in enumerate(zip(input_traj, u_labels)):
-    #     axe = ax[row + ny]
-    #     axe.plot(u[:plt_nsteps], linewidth=2.0, label='Input')
-    #     axe.set_ylabel(label, rotation=0, labelpad=15, fontsize=10)
-    #     axe.legend(fontsize=8)
-    #     axe.tick_params(labelbottom=False, labelsize=9)
-    #
-    # # --- Disturbances
-    # d_labels = [f'$d_{k}$' for k in range(nd)]
-    # for row, (d, label) in enumerate(zip(dist_traj, d_labels)):
-    #     axe = ax[row + ny + nu]
-    #     axe.plot(d[:plt_nsteps], linewidth=2.0, label='Disturbance')
-    #     axe.set_ylabel(label, rotation=0, labelpad=15, fontsize=10)
-    #     axe.legend(fontsize=8)
-    #     axe.tick_params(labelbottom=True, labelsize=9)
+    # --- Inputs
+    u_labels = [f'$u_{k}$' for k in range(nu)]
+    for row, (u, label) in enumerate(zip(input_traj, u_labels)):
+        axe = ax[row + ny]
+        axe.plot(u[:plt_nsteps], linewidth=2.0, label='Input')
+        axe.set_ylabel(label, rotation=0, labelpad=15, fontsize=10)
+        axe.legend(fontsize=8)
+        axe.tick_params(labelbottom=False, labelsize=9)
+
+    # --- Disturbances
+    d_labels = [f'$d_{k}$' for k in range(nd)]
+    for row, (d, label) in enumerate(zip(dist_traj, d_labels)):
+        axe = ax[row + ny + nu]
+        axe.plot(d[:plt_nsteps], linewidth=2.0, label='Disturbance')
+        axe.set_ylabel(label, rotation=0, labelpad=15, fontsize=10)
+        axe.legend(fontsize=8)
+        axe.tick_params(labelbottom=True, labelsize=9)
 
     ax[-1].set_xlabel('Time step', fontsize=10)
     plt.tight_layout()
