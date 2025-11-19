@@ -23,31 +23,43 @@ DPC paper: https://www.sciencedirect.com/science/article/pii/S0959152422000981
 # # # # # # # # # # # # # # # # # # # # # 
 """
 
-"""Instantiate a system emulator from neuromancer.psl"""
+# Load your custom data here
+# Assume train_data, dev_data, test_data are dictionaries with keys 'X' (states), 'U' (inputs), 'Y' (outputs), 'Time'
+# Shapes: 'X' (nsim, nx), 'U' (nsim, nu), 'Y' (nsim, ny), 'Time' (nsim, 1)
+# Replace the following with your data loading code
+# Example: train_data = load_your_data('train.pkl')
+# For demonstration, we'll simulate as before, but make it adaptable
+
 from neuromancer.psl.nonautonomous import Actuator
 from neuromancer.dataset import DictDataset
 sys = Actuator()
 
-"""Generate datasets representative of system behavior"""
+# Generate datasets representative of system behavior
 # obtain time series of the system to be controlled
 train_data, dev_data, test_data = [sys.simulate(nsim=1000) for i in range(3)]
 # normalize the dataset
 train_data, dev_data, test_data = [sys.normalize(d) for d in [train_data, dev_data, test_data]]
-# sys.show(train_data)
 
-# Set up the data to be in samples of 10 contiguous time steps
-# (100 samples with 10 time steps each last dim is dimension of the measured variable)
+# Derive parameters from data shapes
+nx = train_data['X'].shape[1]  # number of states
+nu = train_data['U'].shape[1]  # number of control inputs
+ny = train_data['Y'].shape[1]  # number of observations (if used)
+nsim = train_data['X'].shape[0]  # total simulation steps
+nsteps = 10  # number of time steps per sample (adjust as needed)
+nsamples = nsim // nsteps  # number of samples
+
+# Set up the data to be in samples of nsteps contiguous time steps
 for d in [train_data, dev_data]:
-    d['X'] = d['X'].reshape(100, 10, 3)
-    d['U'] = d['U'].reshape(100, 10, 3)
-    d['Y'] = d['Y'].reshape(100, 10, 3)
+    d['X'] = d['X'].reshape(nsamples, nsteps, nx)
+    d['U'] = d['U'].reshape(nsamples, nsteps, nu)
+    d['Y'] = d['Y'].reshape(nsamples, nsteps, ny)
     d['xn'] = d['X'][:, 0:1, :]     # Add an initial condition to start the system loop
-    d['Time'] = d['Time'].reshape(100, -1)
+    d['Time'] = d['Time'].reshape(nsamples, nsteps)
 
 # create dataloaders
 from torch.utils.data import DataLoader
 train_dataset, dev_dataset, = [DictDataset(d, name=n) for d, n in zip([train_data, dev_data], ['train', 'dev'])]
-train_loader, dev_loader = [DataLoader(d, batch_size=100, collate_fn=d.collate_fn, shuffle=True) for d in [train_dataset, dev_dataset]]
+train_loader, dev_loader = [DataLoader(d, batch_size=nsamples, collate_fn=d.collate_fn, shuffle=True) for d in [train_dataset, dev_dataset]]
 
 """
 # # # # # # # # # # # # # # # # # # # # # # # #
@@ -62,7 +74,7 @@ from neuromancer.dynamics import integrators
 import torch
 
 # define neural ODE
-dx = blocks.MLP(sys.nx + sys.nu, sys.nx, bias=True, linear_map=torch.nn.Linear, nonlin=torch.nn.ELU,
+dx = blocks.MLP(nx + nu, nx, bias=True, linear_map=torch.nn.Linear, nonlin=torch.nn.ELU,
               hsizes=[20 for h in range(3)])
 integrator = integrators.Euler(dx, h=torch.tensor(0.1))
 system_nodel = Node(integrator, ['xn', 'U'], ['xn'], name='NODE')
@@ -111,8 +123,8 @@ test_data = {k: torch.tensor(v, dtype=torch.float32) for k, v in test_data.items
 test_output = model(test_data)
 
 import matplotlib.pyplot as plt
-fix, ax = plt.subplots(nrows=3)
-for v in range(3):
+fix, ax = plt.subplots(nrows=nx)
+for v in range(nx):
     ax[v].plot(test_output['xn'][0, :-1, v].detach().numpy(), label='pred')
     ax[v].plot(test_data['X'][0, :, v].detach().numpy(), label='true')
 plt.legend()
@@ -124,7 +136,8 @@ plt.legend()
 """
 
 """ Create a closed loop system using the system model and a parametrized control policy """
-nx, nu = sys.nx, sys.nu
+# nx, nu already derived from data
+
 # define control policy
 class Policy(torch.nn.Module):
 
@@ -149,7 +162,7 @@ cl_system = System([policy_node, system_nodel], name='cl_system')
 # For this simple Actuator system the same dataset can be used for learning a control policy as we used to learn the system model. Here we wish to optimize  controlling the system to some reference trajectory R.
 train_dataset = DictDataset({'R': train_data['X'], 'X': train_data['X'], 'xn': train_data['xn']}, name='train')
 dev_dataset = DictDataset({'R': dev_data['X'], 'X': train_data['X'], 'xn': dev_data['xn']}, name='dev')
-train_loader, dev_loader = [DataLoader(d, batch_size=100, collate_fn=d.collate_fn, shuffle=True)
+train_loader, dev_loader = [DataLoader(d, batch_size=nsamples, collate_fn=d.collate_fn, shuffle=True)
                             for d in [train_dataset, dev_dataset]]
 
 """ Define objectives and of the optimal control problem """
@@ -204,7 +217,7 @@ from neuromancer.psl.signals import sines, step, arma, spline
 import numpy as np
 
 # generate random sequence of step changes
-references = step(nsim=1000, d=sys.nx, min=sys.stats['X']['min'], max=sys.stats['X']['max'])
+references = step(nsim=1000, d=nx, min=sys.stats['X']['min'], max=sys.stats['X']['max'])
 test_data = {'R': torch.tensor(sys.normalize(references, key='X'), dtype=torch.float32).unsqueeze(0), 'xsys': sys.get_x0().reshape(1, 1, -1),
             'Time': (np.arange(1000)*sys.ts).reshape(1, 1000, 1)}
 print({k: v.shape for k, v in test_data.items()})
@@ -213,8 +226,8 @@ with torch.no_grad():
     test_out = test_system(test_data)
 
 print({k: v.shape for k, v in test_out.items()})
-fix, ax = plt.subplots(nrows=3)
-for v in range(3):
+fix, ax = plt.subplots(nrows=nx)
+for v in range(nx):
     ax[v].plot(test_data['R'][0, :, v].detach().numpy(), 'r--', label='reference')
     ax[v].plot(test_out['xn'][0, 1:, v].detach().numpy(), label='state')
 plt.legend()
