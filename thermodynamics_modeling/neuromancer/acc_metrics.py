@@ -1,4 +1,6 @@
+from sklearn import metrics
 import yaml
+import time
 import pandas as pd
 import numpy as np
 import torch
@@ -40,9 +42,9 @@ D = ((D_df.values - muD_vals) / stdD_vals).astype(np.float32)
 # =============================
 # 3. Choose custom window
 # =============================
-start_idx = -500  # last 500 steps
-end_idx = None    # or specify end index
-H = 16            # horizon (same as training)
+start_idx = config["metrics"]["start_idx"]  
+end_idx = config["metrics"]["end_idx"] if config["metrics"]["end_idx"] != 'None' else None 
+H = config["dataset"]["H"]            # horizon 
 
 Y_seq = torch.tensor(Y[start_idx:end_idx], dtype=torch.float32).unsqueeze(0)
 U_seq = torch.tensor(U[start_idx:end_idx], dtype=torch.float32).unsqueeze(0)
@@ -69,15 +71,21 @@ problem = Problem([encode_sym, dynamics_model], loss)
 
 torch.serialization.add_safe_globals([neuromancer.problem.Problem])
 
+t0 = time.time()
 problem = torch.load("./out/best_model.pth", map_location=torch.device('cpu'), weights_only=False)
+load_time = time.time() - t0
+print(f"Model load time: {load_time:.4f} seconds")
 
 problem.nodes[1].nsteps = Y_seq.shape[1]
 
 # =============================
 # 5. Run inference
 # =============================
+t1 = time.time()
 with torch.no_grad():
     outputs = problem(test_data)
+first_inference_time = time.time() - t1
+print(f"First inference time: {first_inference_time:.4f} seconds")
 
 yhat = outputs['custom_test_y'].cpu().numpy()
 true_vals = Y_seq.cpu().numpy()
@@ -115,8 +123,6 @@ plt.figure(figsize=(12, 6))
 for i, room in enumerate(room_names):
     pred_flat = pred_traj[:,:, i].reshape(-1)
     true_flat = true_traj[:,:, i].reshape(-1)
-    print(pred_traj.shape)
-    print(true_traj.shape)
 
     plt.subplot(6, 1, i+1)
     plt.plot(pred_flat, label='True', color='cyan')

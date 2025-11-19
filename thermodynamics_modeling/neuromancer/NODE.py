@@ -40,7 +40,7 @@ def get_colums(df):
 # =======================================================
 # 1. Data utilities (get_data, get_splits)
 # =======================================================
-def get_data(csv_path, dt_minutes=5, H=12):
+def get_data(csv_path, dt_minutes=5, H=config["dataset"]["H"]):
     """Load, preprocess, normalize, and window building dataset.
 
     Args:
@@ -107,7 +107,7 @@ def get_data(csv_path, dt_minutes=5, H=12):
     }
 
 
-def get_splits(csv_path, dt_minutes=5, H=12, batch_size=64, split_ratio=0.5):
+def get_splits(csv_path, dt_minutes=5, H=config["dataset"]["H"], batch_size=config["dataset"]["batch_size"], split_ratio=config["dataset"]["split_ratio"]):
     """Create train, dev, and test splits for the dataset.
 
     Args:
@@ -157,7 +157,7 @@ def build_model(ny, nu, nd, H, dt_sec):
     """    
     torch.manual_seed(0)
 
-    n_latent = 4  # latent state space dimension
+    n_latent = config["model"]["latent_space_dimensions"]
     nx = n_latent
 
     # Latent encoder (observations -> latent initial state)
@@ -263,10 +263,8 @@ if __name__ == "__main__":
     CSV = config["train_data"]
 
     # === Load dataset and splits ===
-    H = 16       
-    batch_size = 64
     train_loader, dev_loader, test_data, dt_sec, stats = get_splits(
-        CSV, dt_minutes=5, H=H, batch_size=batch_size
+        CSV, dt_minutes=5
     )
     print(f"Integration step (dt_sec): {dt_sec}")
 
@@ -277,7 +275,7 @@ if __name__ == "__main__":
     nd = sample_batch["D"].shape[-1]
 
     # === Build model ===
-    encode_sym, dynamics_model = build_model(ny, nu, nd, H, dt_sec)
+    encode_sym, dynamics_model = build_model(ny, nu, nd, config["dataset"]["H"], dt_sec)
 
     # === Train ===
     problem = train_model(train_loader, dev_loader, test_data,
@@ -338,23 +336,23 @@ if __name__ == "__main__":
         axe.legend(fontsize=8)
         axe.tick_params(labelbottom=False, labelsize=9)
 
-    # --- Inputs
-    u_labels = [f'$u_{k}$' for k in range(nu)]
-    for row, (u, label) in enumerate(zip(input_traj, u_labels)):
-        axe = ax[row + ny]
-        axe.plot(u[:plt_nsteps], linewidth=2.0, label='Input')
-        axe.set_ylabel(label, rotation=0, labelpad=15, fontsize=10)
-        axe.legend(fontsize=8)
-        axe.tick_params(labelbottom=False, labelsize=9)
-
-    # --- Disturbances
-    d_labels = [f'$d_{k}$' for k in range(nd)]
-    for row, (d, label) in enumerate(zip(dist_traj, d_labels)):
-        axe = ax[row + ny + nu]
-        axe.plot(d[:plt_nsteps], linewidth=2.0, label='Disturbance')
-        axe.set_ylabel(label, rotation=0, labelpad=15, fontsize=10)
-        axe.legend(fontsize=8)
-        axe.tick_params(labelbottom=True, labelsize=9)
+    # # --- Inputs
+    # u_labels = [f'$u_{k}$' for k in range(nu)]
+    # for row, (u, label) in enumerate(zip(input_traj, u_labels)):
+    #     axe = ax[row + ny]
+    #     axe.plot(u[:plt_nsteps], linewidth=2.0, label='Input')
+    #     axe.set_ylabel(label, rotation=0, labelpad=15, fontsize=10)
+    #     axe.legend(fontsize=8)
+    #     axe.tick_params(labelbottom=False, labelsize=9)
+    #
+    # # --- Disturbances
+    # d_labels = [f'$d_{k}$' for k in range(nd)]
+    # for row, (d, label) in enumerate(zip(dist_traj, d_labels)):
+    #     axe = ax[row + ny + nu]
+    #     axe.plot(d[:plt_nsteps], linewidth=2.0, label='Disturbance')
+    #     axe.set_ylabel(label, rotation=0, labelpad=15, fontsize=10)
+    #     axe.legend(fontsize=8)
+    #     axe.tick_params(labelbottom=True, labelsize=9)
 
     ax[-1].set_xlabel('Time step', fontsize=10)
     plt.tight_layout()
