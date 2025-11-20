@@ -33,8 +33,9 @@ import argparse
 
 import torch
 import torch.nn as nn
-from torchdiffeq import odeint
 import matplotlib.pyplot as plt
+import yaml
+import runpy
 
 # -----------------------------
 # 1) Default config (align with training)
@@ -43,216 +44,19 @@ DEFAULT_OUTDIR = "./out"
 DEFAULT_TEST = "./dataset_split/test_dataset.csv"
 DEFAULT_H = 16
 DEFAULT_LATENT = 8
+# Feature lists (controls/targets) are loaded from `config.yml` at runtime.
+ROOMS_TEMP = []
+CONTROL_FEATURES = []
 
-ROOMS_TEMP = [
-    "RoomA:Sensor__room_temperature",
-    "RoomB:Sensor__room_temperature",
-    "RoomC:Sensor__room_temperature",
-    "RoomD:Sensor__room_temperature",
-    "RoomE:Sensor__room_temperature",
-    "RoomF:Sensor__room_temperature",
-]
+# The CSV utilities, interpolation and model definitions are provided by the
+# training module `torchdiffeq.py` in this package. To avoid duplicating the
+# model and utilities here we dynamically load those definitions at runtime
+# inside `main()` (using `runpy.run_path`) and then bind the symbols we need
+# such as `read_csv_as_dicts`, `build_matrix`, `normalize`, `denormalize` and
+# `NeuralODEModel`.
 
-CONTROL_FEATURES = [
-    # Observations per room
-    "RoomA:Radiator__control_signal__motor_valve", "RoomA:Damper__position", "RoomA:AHU__active",
-    "RoomB:Radiator__control_signal__motor_valve", "RoomB:Damper__position", "RoomB:AHU__active",
-    "RoomC:Radiator__control_signal__motor_valve", "RoomC:Damper__position", "RoomC:AHU__active",
-    "RoomD:Radiator__control_signal__motor_valve", "RoomD:Damper__position", "RoomD:AHU__active",
-    "RoomE:Radiator__control_signal__motor_valve", "RoomE:Damper__position", "RoomE:AHU__active",
-    "RoomF:Radiator__control_signal__motor_valve", "RoomF:Damper__position", "RoomF:AHU__active",
-    # Global observations
-    "Heating:Control__setpoint_water_temperature__supply",
-    "Ventilation:Sensor__air_temperature__supply",
-    # Disturbances
-    "Outdoor:Temperature_air", "solar_sum",
-    "RoomA_is_occupied", "RoomA:Window__opened_closed",
-    "RoomB_is_occupied", "RoomB:Window__opened_closed",
-    "RoomC_is_occupied", "RoomC:Window__opened_closed",
-    "RoomD_is_occupied", "RoomD:Window__opened_closed",
-    "RoomE_is_occupied", "RoomE:Window__opened_closed",
-    "RoomF_is_occupied", "RoomF:Window__opened_closed",
-    # Outdoor solar (façades)
-    "Outdoor:Solar__direct_radiation__east_façade",
-    "Outdoor:Solar__direct_radiation__south_façade",
-    "Outdoor:Solar__direct_radiation__west_façade",
-]
-
-# -----------------------------
-# 2) CSV utilities & normalization
-# -----------------------------
-def read_csv_as_dicts(path):
-    """
-    Read CSV rows into a list of dicts: {column_name: float_or_numeric}.
-    - Forward-fill missing values per column; first missing -> 0.0
-    - Booleans mapped to 1.0/0.0
-    - Non-numeric leftovers hashed to a small numeric code
-    """
-    with open(path, "r", newline="") as f:
-        reader = csv.reader(f)
-        headers = next(reader)
-        headers = [h.strip().replace("\ufeff", "") for h in headers]
-        rows = []
-        prev_vals = [None] * len(headers)
-        for row in reader:
-            row_vals = {}
-            for i, val in enumerate(row):
-                v = (val or "").strip()
-                if v == "" or v.lower() == "nan":
-                    v = prev_vals[i] if prev_vals[i] is not None else "0.0"
-                try:
-                    fv = float(v)
-                except ValueError:
-                    if v.lower() in ("true", "yes", "on"):
-                        fv = 1.0
-                    elif v.lower() in ("false", "no", "off"):
-                        fv = 0.0
-                    else:
-                        fv = float(abs(hash(v)) % 10)
-                prev_vals[i] = str(fv)
-                row_vals[headers[i]] = fv
-            rows.append(row_vals)
-    return headers, rows
-
-def build_matrix(rows, selected_cols, device):
-    """
-    Extract matrix [T, D] for selected columns from list of row dicts.
-    Missing columns are filled with zeros (warned).
-    """
-    T = len(rows)
-    D = len(selected_cols)
-    X = torch.empty(T, D, dtype=torch.float32, device=device)
-    missing = []
-    for j, col in enumerate(selected_cols):
-        for t in range(T):
-            if col in rows[t]:
-                X[t, j] = float(rows[t][col])
-            else:
-                missing.append(col)
-                X[t, j] = 0.0
-    if missing:
-        print(f"[WARN] Missing columns not found in CSV: {sorted(set(missing))}")
-    return X
-
-def normalize(X, mean, std):
-    return (X - mean) / std
-
-def denormalize(Xn, mean, std):
-    return Xn * std + mean
-
-# -----------------------------
-# 3) Control interpolator
-# -----------------------------
-class ControlInterpolator:
-    """
-    Piecewise-linear interpolation of controls U(t) over discrete t_ref.
-    U: [B, H, d_u] or [H, d_u] (broadcasted)
-    """
-    def __init__(self, t_ref, U):
-        self.t_ref = t_ref
-        self.U = U
-        self.H = t_ref.shape[0]
-        self.du = U.shape[-1]
-        self.has_batch = (U.dim() == 3)
-
-    def __call__(self, t):
-        if not torch.is_tensor(t):
-            t = torch.tensor(t, dtype=self.t_ref.dtype, device=self.t_ref.device)
-        pos = torch.searchsorted(self.t_ref, t)
-        left = torch.clamp(pos - 1, 0, self.H - 1)
-        right = torch.clamp(pos, 0, self.H - 1)
-        t_left = self.t_ref[left]
-        t_right = self.t_ref[right]
-        denom = torch.where((t_right - t_left) == 0, torch.ones_like(t_right), (t_right - t_left))
-        alpha = (t - t_left) / denom
-
-        if self.has_batch and t.dim() > 0:
-            B = t.shape[0]
-            U_left = self.U[torch.arange(B), left]
-            U_right = self.U[torch.arange(B), right]
-            return (1 - alpha.view(B, 1)) * U_left + alpha.view(B, 1) * U_right
-        else:
-            U_left = self.U[left] if not self.has_batch else self.U[0, left]
-            U_right = self.U[right] if not self.has_batch else self.U[0, right]
-            return (1 - alpha) * U_left + alpha * U_right
-
-# -----------------------------
-# 4) Neural ODE components (same as training)
-# -----------------------------
-class ODEFunc(nn.Module):
-    def __init__(self, latent_dim, control_dim):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(latent_dim + control_dim, 128),
-            nn.Tanh(),
-            nn.Linear(128, 128),
-            nn.Tanh(),
-            nn.Linear(128, latent_dim)
-        )
-        self.control_interp = None
-
-    def set_control(self, interp):
-        self.control_interp = interp
-
-    def forward(self, t, z):
-        if self.control_interp is None:
-            raise RuntimeError("Control interpolator not set on ODEFunc.")
-        if z.dim() == 1:
-            z = z.unsqueeze(0)
-        B = z.shape[0]
-        if torch.is_tensor(t) and t.dim() == 0:
-            t_batch = t.expand(B)
-        elif torch.is_tensor(t) and t.dim() == 1:
-            t_batch = t
-        else:
-            t_batch = torch.tensor([t]*B, dtype=z.dtype, device=z.device)
-        u_t = self.control_interp(t_batch)                 # [B, d_u]
-        return self.net(torch.cat([z, u_t], dim=-1))       # [B, latent_dim]
-
-class Encoder(nn.Module):
-    def __init__(self, input_dim, latent_dim):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 128),
-            nn.ReLU(),
-            nn.Linear(128, latent_dim)
-        )
-    def forward(self, x0):
-        return self.net(x0)
-
-class Decoder(nn.Module):
-    def __init__(self, latent_dim, output_dim):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(latent_dim, 128),
-            nn.ReLU(),
-            nn.Linear(128, output_dim)
-        )
-    def forward(self, z_t):
-        return self.net(z_t)
-
-class NeuralODEModel(nn.Module):
-    def __init__(self, latent_dim, control_dim, output_dim):
-        super().__init__()
-        self.encoder = Encoder(input_dim=output_dim + control_dim, latent_dim=latent_dim)
-        self.odefunc = ODEFunc(latent_dim=latent_dim, control_dim=control_dim)
-        self.decoder = Decoder(latent_dim=latent_dim, output_dim=output_dim)
-
-    def forward(self, y0, controls_seq, t_span, method='rk4'):
-        B, H_local, d_u = controls_seq.shape
-        assert H_local == t_span.shape[0], "controls_seq length must match t_span length"
-        u0 = controls_seq[:, 0, :]
-        enc_in = torch.cat([y0, u0], dim=-1)
-        z0 = self.encoder(enc_in)
-
-        interp = ControlInterpolator(t_ref=t_span, U=controls_seq)
-        self.odefunc.set_control(interp)
-
-        z_t = odeint(self.odefunc, z0, t_span, method=method)  # [H, B, latent]
-        Hn, Bn, L = z_t.shape
-        y_hat = self.decoder(z_t.reshape(Hn * Bn, L)).view(Hn, Bn, -1)  # [H, B, d_y]
-        return y_hat
-
+# This keeps the evaluation script small and ensures the model implementation
+# is maintained in a single place (the trainer module).
 # -----------------------------
 # 5) Metrics
 # -----------------------------
@@ -355,6 +159,34 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
+    # Load config and bind utilities/model from the training module
+    base_dir = os.path.dirname(__file__)
+    cfg_path = os.path.join(base_dir, "config.yml")
+    if not os.path.exists(cfg_path):
+        raise FileNotFoundError(f"config.yml not found in {base_dir}")
+    with open(cfg_path, "r") as f:
+        config = yaml.safe_load(f)
+
+    # Derive feature lists from config
+    CONTROL_FEATURES = list(config.get("observations", [])) + list(config.get("disturbances", [])) + list(config.get("outdoor", []))
+    ROOMS_TEMP = list(config.get("rooms_temp", []))
+
+    # Dynamically load the training module's namespace (avoids circular imports)
+    td_path = os.path.join(base_dir, "torchdiffeq_model.py")
+    if not os.path.exists(td_path):
+        raise FileNotFoundError(f"Trainer module not found: {td_path}")
+    module_ns = runpy.run_path(td_path)
+
+    # Bind utilities and model from the training module
+    try:
+        read_csv_as_dicts = module_ns["read_csv_as_dicts"]
+        build_matrix = module_ns["build_matrix"]
+        normalize = module_ns["normalize"]
+        denormalize = module_ns["denormalize"]
+        NeuralODEModel = module_ns["NeuralODEModel"]
+    except KeyError as e:
+        raise RuntimeError(f"Expected symbol missing in trainer module: {e}")
+
     # Load scalers and model weights
     scalers_path = os.path.join(args.out, "scalers.pt")
     ckpt_path = os.path.join(args.out, "best_model.pt")
@@ -430,7 +262,7 @@ def main():
             controls_seq = controls_n[start:start + H].unsqueeze(0)  # [1, H, d_u]
             y_seq_true = targets[start:start + H]                     # [H, d_y] (denorm)
             y0 = targets_n[start].unsqueeze(0)                        # [1, d_y]
-
+            
             y_hat_seq_norm = model(y0, controls_seq, t_span, method=args.solver).squeeze(1)  # [H, d_y]
             y_hat_seq = denormalize(y_hat_seq_norm, y_mean, y_std)                           # [H, d_y]
 

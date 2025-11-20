@@ -5,14 +5,14 @@ test_data: "./dataset_split/test_data.csv"
 
 dataset:
   split_ratio: 0.8
-  H: 16
+  H: 24
   batch_size: 64
 
 
 model:
-  patience: 100
-  warmup: 50
-  epochs: 5
+  patience: 10
+  warmup: 3
+  epochs: 25
   latent_space_dimensions: 8
 
 outdoor: [

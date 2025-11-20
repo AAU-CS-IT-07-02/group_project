@@ -10,7 +10,9 @@ from torchdiffeq import odeint
 # -----------------------------
 # 1) Configuration (from your config.yml, embedded here as a Python dict)
 # -----------------------------
-with open('config.yml', 'r') as file:
+import os
+config_path = os.path.join(os.path.dirname(__file__), 'config.yml')
+with open(config_path, 'r') as file:
     config = yaml.safe_load(file)
 
 # Derived feature groups
@@ -30,8 +32,18 @@ os.makedirs(OUTDIR, exist_ok=True)
 # -----------------------------
 
 def read_csv_as_dicts(path):
-    """Read CSV rows into a list of dicts: {header: float_value}.
-    Missing/empty values are forward-filled per column, then 0 if still missing.
+    """
+    Read a CSV file into a list of dictionaries, one per row, mapping column headers to float values.
+
+    - Missing or empty values are forward-filled per column; if still missing, filled with 0.0.
+    - Boolean-like strings are mapped to 1.0/0.0.
+    - Non-numeric values are hashed to a small numeric code.
+
+    Args:
+        path (str): Path to the CSV file.
+    Returns:
+        headers (list of str): List of column headers.
+        rows (list of dict): List of row dictionaries {header: float_value}.
     """
     with open(path, "r", newline="") as f:
         reader = csv.reader(f)
@@ -66,11 +78,23 @@ def read_csv_as_dicts(path):
             rows.append(row_vals)
     return headers, rows
 
-def build_matrix(rows, selected_cols):
-    """Extract matrix [T, D] for selected columns from list of row dicts."""
+def build_matrix(rows, selected_cols, device=None):
+    """
+    Extract a matrix [T, D] for selected columns from a list of row dictionaries.
+
+    Args:
+        rows (list of dict): List of row dictionaries from read_csv_as_dicts.
+        selected_cols (list of str): Columns to extract.
+        device (optional): torch device for output tensor (default: CPU).
+    Returns:
+        X (Tensor): [T, D] matrix of selected columns.
+    """
     T = len(rows)
     D = len(selected_cols)
-    X = torch.empty(T, D, dtype=torch.float32)
+    if device is None:
+        X = torch.empty(T, D, dtype=torch.float32)
+    else:
+        X = torch.empty(T, D, dtype=torch.float32, device=device)
     missing = []
     for j, col in enumerate(selected_cols):
         for t in range(T):
@@ -85,7 +109,14 @@ def build_matrix(rows, selected_cols):
     return X
 
 def compute_norm_stats(X):
-    """Compute mean/std per feature, with epsilon for numerical stability."""
+    """
+    Compute mean and standard deviation per feature (column) for normalization.
+    Args:
+        X (Tensor): [N, D] input data
+    Returns:
+        mean (Tensor): [D] mean per feature
+        std (Tensor): [D] std per feature (with epsilon for stability)
+    """
     mean = X.mean(dim=0)
     std = X.std(dim=0)
     eps = 1e-8
@@ -93,9 +124,27 @@ def compute_norm_stats(X):
     return mean, std
 
 def normalize(X, mean, std):
+    """
+    Normalize data using mean and std.
+    Args:
+        X (Tensor): input data
+        mean (Tensor): mean per feature
+        std (Tensor): std per feature
+    Returns:
+        Xn (Tensor): normalized data
+    """
     return (X - mean) / std
 
 def denormalize(Xn, mean, std):
+    """
+    Denormalize data using mean and std.
+    Args:
+        Xn (Tensor): normalized data
+        mean (Tensor): mean per feature
+        std (Tensor): std per feature
+    Returns:
+        X (Tensor): denormalized data
+    """
     return Xn * std + mean
 
 # -----------------------------
@@ -103,11 +152,21 @@ def denormalize(Xn, mean, std):
 # -----------------------------
 class WindowedDataset(torch.utils.data.Dataset):
     """
-    Builds windows of length H:
-      - controls_seq: [H, d_u] normalized
-      - y_seq:        [H, d_y] normalized
-      - y0:           [d_y]    first step of y_seq
-    Loss is computed across y_seq vs predictions across all H steps.
+    PyTorch Dataset for creating sliding windows of time series data for sequence modeling.
+
+    Each item is a tuple:
+        - controls_seq: [H, d_u] normalized control/disturbance features for the window
+        - y_seq:        [H, d_y] normalized target (room temperature) sequence for the window
+        - y0:           [d_y]    initial target (first step of y_seq)
+
+    Args:
+        controls (Tensor): [T, d_u] full control/disturbance time series
+        targets (Tensor): [T, d_y] full target time series
+        start_idx (int, optional): Start index for valid windowing (default: 0)
+        end_idx (int, optional): End index for valid windowing (default: T)
+
+    Returns:
+        __getitem__(i): (controls_seq, y_seq, y0) for window i
     """
     def __init__(self, controls, targets, start_idx=None, end_idx=None):
         assert controls.shape[0] == targets.shape[0], "controls and targets must have same time length"
@@ -141,8 +200,19 @@ class WindowedDataset(torch.utils.data.Dataset):
 # -----------------------------
 class ControlInterpolator:
     """
-    Piecewise-linear interpolation of controls U(t) given discrete times t_ref=[0..H-1].
-    Supports batch controls: U has shape [B, H, d_u] or [H, d_u] (broadcast to batch).
+    Piecewise-linear interpolator for control sequences U(t) over a discrete time grid.
+
+    Given a reference time vector t_ref (e.g., [0, 1, ..., H-1]) and a control sequence U,
+    this class provides u(t) for any t in [0, H-1] by linear interpolation between steps.
+
+    Supports both single-sample ([H, d_u]) and batch ([B, H, d_u]) control arrays.
+
+    Args:
+        t_ref (Tensor): [H] time reference points (must be ascending)
+        U (Tensor): [H, d_u] or [B, H, d_u] control sequence(s)
+
+    Returns:
+        __call__(t): interpolated control(s) at time t (scalar or [B])
     """
     def __init__(self, t_ref, U):
         # t_ref: [H] tensor ascending
@@ -191,26 +261,50 @@ class ControlInterpolator:
 # 5) Neural ODE components
 # -----------------------------
 class ODEFunc(nn.Module):
+    """
+    Defines the right-hand side (dynamics) of the latent ODE for the Neural ODE model.
+
+    The ODE is: dz/dt = f(z, u(t)), where z is the latent state and u(t) is the interpolated control.
+    This class is a neural network that takes [z, u(t)] as input and outputs dz/dt.
+
+    Args:
+        latent_dim (int): Dimension of latent state z
+        control_dim (int): Dimension of control input u
+
+    Usage:
+        - Call set_control(interp) before integration to set the control interpolator for the batch.
+        - Forward: forward(t, z) returns dz/dt for given t and z.
+    """
     def __init__(self, latent_dim, control_dim):
         super().__init__()
         self.latent_dim = latent_dim
         self.control_dim = control_dim
         self.net = nn.Sequential(
-            nn.Linear(latent_dim + control_dim, 128),
+            nn.Linear(latent_dim + control_dim, 256),
             nn.Tanh(),
-            nn.Linear(128, 128),
+            nn.Linear(256, 256),
             nn.Tanh(),
-            nn.Linear(128, latent_dim)
+            nn.Linear(256, latent_dim)
         )
         # Will be set externally per batch
         self.control_interp = None
 
     def set_control(self, interp):
+        """
+        Set the control interpolator for the current batch.
+        Args:
+            interp (ControlInterpolator): interpolator instance
+        """
         self.control_interp = interp
 
     def forward(self, t, z):
         """
-        z: [B, latent_dim] ; t: scalar or [B]
+        Compute dz/dt for given t and z.
+        Args:
+            t (scalar or [B]): time(s)
+            z ([B, latent_dim]): latent state(s)
+        Returns:
+            dz ([B, latent_dim]): time derivative(s)
         """
         assert self.control_interp is not None, "Control interpolator not set"
         if z.dim() == 1:
@@ -228,40 +322,99 @@ class ODEFunc(nn.Module):
         return dz
 
 class Encoder(nn.Module):
+    """
+    Feedforward encoder network for mapping initial observed state and control to latent space.
+
+    Args:
+        input_dim (int): Dimension of input (output_dim + control_dim)
+        latent_dim (int): Dimension of latent state
+
+    Forward:
+        x0 ([B, input_dim]) -> z0 ([B, latent_dim])
+    """
     def __init__(self, input_dim, latent_dim):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(input_dim, 128),
+            nn.Linear(input_dim, 256),
             nn.ReLU(),
-            nn.Linear(128, latent_dim)
+            nn.Linear(256, latent_dim)
         )
     def forward(self, x0):
+        """
+        Encode initial state and control to latent space.
+        Args:
+            x0 ([B, input_dim]): initial observed state and control
+        Returns:
+            z0 ([B, latent_dim]): initial latent state
+        """
         return self.net(x0)
 
 class Decoder(nn.Module):
+    """
+    Feedforward decoder network for mapping latent state to output (room temperatures).
+
+    Args:
+        latent_dim (int): Dimension of latent state
+        output_dim (int): Dimension of output (number of rooms)
+
+    Forward:
+        z_t ([N, latent_dim]) -> y_hat ([N, output_dim])
+    """
     def __init__(self, latent_dim, output_dim):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(latent_dim, 128),
+            nn.Linear(latent_dim, 256),
             nn.ReLU(),
-            nn.Linear(128, output_dim)
+            nn.Linear(256, output_dim)
         )
     def forward(self, z_t):
+        """
+        Decode latent state to output.
+        Args:
+            z_t ([N, latent_dim]): latent state(s)
+        Returns:
+            y_hat ([N, output_dim]): predicted outputs
+        """
         return self.net(z_t)
 
 class NeuralODEModel(nn.Module):
+    """
+    Full Neural ODE model for multi-step sequence prediction of building temperatures.
+
+    Architecture:
+        - Encoder: maps initial observed state and control to latent state
+        - ODEFunc: latent dynamics, integrated over time with controls
+        - Decoder: maps latent state at each time to predicted outputs
+
+    Args:
+        latent_dim (int): Dimension of latent state
+        control_dim (int): Dimension of control input
+        output_dim (int): Dimension of output (number of rooms)
+
+    Forward:
+        y0 ([B, d_y]): initial output (normalized)
+        controls_seq ([B, H, d_u]): control sequence (normalized)
+        t_span ([H]): time vector
+        method (str): ODE solver method (default 'rk4')
+    Returns:
+        y_hat ([H, B, d_y]): predicted outputs for each step in window
+    """
     def __init__(self, latent_dim, control_dim, output_dim):
         super().__init__()
         self.encoder = Encoder(input_dim=output_dim + control_dim, latent_dim=latent_dim)
         self.odefunc = ODEFunc(latent_dim=latent_dim, control_dim=control_dim)
         self.decoder = Decoder(latent_dim=latent_dim, output_dim=output_dim)
 
-    def forward(self, y0, controls_seq, t_span):
+    def forward(self, y0, controls_seq, t_span, method='rk4'):
         """
-        y0: [B, d_y]              initial measured outputs (normalized)
-        controls_seq: [B, H, d_u] normalized controls for the horizon
-        t_span: [H] tensor, e.g., torch.linspace(0, H-1, H)
-        Returns y_hat_seq: [H, B, d_y]
+        Predict output sequence for a window given initial state and controls.
+        Args:
+            y0 ([B, d_y]): initial output (normalized)
+            controls_seq ([B, H, d_u]): control sequence (normalized)
+            t_span ([H]): time vector
+            method (str): ODE solver method (default 'rk4')
+        Returns:
+            y_hat ([H, B, d_y]): predicted outputs for each step in window
         """
         B, H_local, d_u = controls_seq.shape
         assert H_local == t_span.shape[0], "controls_seq length and t_span must match"
@@ -274,8 +427,8 @@ class NeuralODEModel(nn.Module):
         interp = ControlInterpolator(t_ref=t_span, U=controls_seq)
         self.odefunc.set_control(interp)
 
-        # Integrate
-        z_t = odeint(self.odefunc, z0, t_span, method='rk4')   # [H, B, latent_dim]
+        # Integrate latent ODE
+        z_t = odeint(self.odefunc, z0, t_span, method=method)   # [H, B, latent_dim]
         # Decode each step
         Hn, Bn, L = z_t.shape
         z_flat = z_t.reshape(Hn * Bn, L)
@@ -287,6 +440,21 @@ class NeuralODEModel(nn.Module):
 # 6) Training / Evaluation
 # -----------------------------
 def make_dataloader(controls, targets, mean_std_controls, mean_std_targets, batch_size, start_idx=None, end_idx=None, shuffle=True):
+    """
+    Create a PyTorch DataLoader for windowed time series data.
+
+    Args:
+        controls (Tensor): [T, d_u] control/disturbance time series
+        targets (Tensor): [T, d_y] target time series
+        mean_std_controls (tuple): (mean, std) for controls normalization
+        mean_std_targets (tuple): (mean, std) for targets normalization
+        batch_size (int): batch size
+        start_idx (int, optional): start index for windowing
+        end_idx (int, optional): end index for windowing
+        shuffle (bool): whether to shuffle windows
+    Returns:
+        DataLoader: yields (controls_seq, y_seq, y0) batches
+    """
     c_mean, c_std = mean_std_controls
     y_mean, y_std = mean_std_targets
     controls_n = normalize(controls, c_mean, c_std)
@@ -295,6 +463,21 @@ def make_dataloader(controls, targets, mean_std_controls, mean_std_targets, batc
     return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=shuffle, drop_last=True)
 
 def train_loop(model, train_loader, val_loader, epochs, warmup, patience, lr=1e-3, device="cpu"):
+    """
+    Training loop for Neural ODE model with early stopping and learning rate warmup.
+
+    Args:
+        model (nn.Module): NeuralODEModel instance
+        train_loader (DataLoader): training data loader
+        val_loader (DataLoader): validation data loader
+        epochs (int): max number of epochs
+        warmup (int): number of epochs for linear LR warmup
+        patience (int): early stopping patience
+        lr (float): learning rate
+        device (str): device for training ('cpu' or 'cuda')
+    Returns:
+        ckpt_path (str): path to best model checkpoint
+    """
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.MSELoss()
@@ -377,7 +560,17 @@ def train_loop(model, train_loader, val_loader, epochs, warmup, patience, lr=1e-
     return ckpt_path
 
 def evaluate(model, loader, mean_std_targets, device="cpu"):
-    """Return MAE and RMSE in normalized space."""
+    """
+    Evaluate model on a DataLoader and return MAE and RMSE in normalized space.
+
+    Args:
+        model (nn.Module): trained model
+        loader (DataLoader): evaluation data loader
+        mean_std_targets (tuple): (mean, std) for denormalization
+        device (str): device for evaluation
+    Returns:
+        dict: {'mae_norm': MAE, 'rmse_norm': RMSE}
+    """
     model.to(device)
     model.eval()
     mae_sum, rmse_sum, n = 0.0, 0.0, 0
@@ -406,7 +599,8 @@ def evaluate(model, loader, mean_std_targets, device="cpu"):
 # 7) Main: load data, build loaders, train, evaluate
 # -----------------------------
 def main(device=None):
-    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    # device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
     print(f"Using device: {device}")
 
     # Load train & test CSVs
