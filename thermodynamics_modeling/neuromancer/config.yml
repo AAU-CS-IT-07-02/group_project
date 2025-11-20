@@ -12,7 +12,7 @@ dataset:
 model:
   patience: 100
   warmup: 50
-  epochs: 150
+  epochs: 5
   latent_space_dimensions: 8
 
 outdoor: [
