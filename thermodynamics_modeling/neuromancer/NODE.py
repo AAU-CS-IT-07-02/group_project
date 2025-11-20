@@ -23,7 +23,7 @@ from neuromancer.problem import Problem
 from neuromancer.trainer import Trainer
 from neuromancer.loggers import BasicLogger
 
-with open('/home/beltranaceves/software/group_project/thermodynamics_modeling/neuromancer/config.yml', 'r') as file:
+with open('config.yml', 'r') as file:
     config = yaml.safe_load(file)
 
 # ----------------------------
@@ -207,7 +207,7 @@ def build_model(ny, nu, nd, H, dt_sec):
     """    
     torch.manual_seed(0)
 
-    n_latent = 4  # latent state space dimension
+    n_latent = 8  # latent state space dimension
     nx = n_latent
 
     # Latent encoder (observations -> latent initial state)
@@ -409,3 +409,28 @@ if __name__ == "__main__":
     ax[-1].set_xlabel('Time step', fontsize=10)
     plt.tight_layout()
     plt.show()
+    
+    # =====================
+    # Save trained model
+    # =====================
+    import pickle
+    
+    model_save_dir = os.path.join(config["outdir"], "trained_model")
+    os.makedirs(model_save_dir, exist_ok=True)
+    
+    # Save model state dict
+    model_path = os.path.join(model_save_dir, "model_state_dict.pth")
+    torch.save(problem.state_dict(), model_path)
+    print(f"\n✓ Saved model state dict to {model_path}")
+    
+    # Save normalization statistics
+    stats_path = os.path.join(model_save_dir, "normalization_stats.pkl")
+    with open(stats_path, 'wb') as f:
+        pickle.dump(stats, f)
+    print(f"✓ Saved normalization statistics to {stats_path}")
+    
+    print("\nModel artifacts ready for policy training:")
+    print(f"  Model:     {model_path}")
+    print(f"  Stats:     {stats_path}")
+    print(f"\nTo train policy, run:")
+    print(f"  python train_policy.py --model_path {model_path} --stats_path {stats_path}")

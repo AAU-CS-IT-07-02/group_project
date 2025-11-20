@@ -10,7 +10,7 @@ system:
 model:
   patience: 100
   warmup: 50
-  epochs: 300
+  epochs: 15
 
 outdoor: [
     # "Outdoor:Solar__direct_radiation__east_façade",
