@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>// Place global declarations here.
+int t = 7;
+const int low = 5;
+const int high = 27;
+bool actuator = false;</declaration>
+	<template>
+		<name x="5" y="5">BangBangController</name>
+		<declaration>// Place local declarations here.
+</declaration>
+		<location id="id0" x="-824" y="-340">
+			<name x="-834" y="-374">Off</name>
+		</location>
+		<location id="id1" x="-654" y="-340">
+			<name x="-664" y="-374">On</name>
+		</location>
+		<init ref="id0"/>
+		<transition id="id2">
+			<source ref="id1"/>
+			<target ref="id1"/>
+			<label kind="assignment" x="-654" y="-289">t = t + 1</label>
+			<nail x="-620" y="-289"/>
+			<nail x="-671" y="-289"/>
+		</transition>
+		<transition id="id3">
+			<source ref="id0"/>
+			<target ref="id0"/>
+			<label kind="assignment" x="-884" y="-289">t = t - 1</label>
+			<nail x="-850" y="-289"/>
+			<nail x="-799" y="-289"/>
+		</transition>
+		<transition id="id4">
+			<source ref="id1"/>
+			<target ref="id0"/>
+			<label kind="guard" x="-764" y="-374">t&gt;=high</label>
+			<label kind="assignment" x="-790" y="-400">actuator=false</label>
+			<nail x="-739" y="-383"/>
+		</transition>
+		<transition id="id5">
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="guard" x="-764" y="-323">t&lt;=low</label>
+			<label kind="assignment" x="-790" y="-289">actuator=true</label>
+			<nail x="-739" y="-289"/>
+		</transition>
+	</template>
+	<system>// Place template instantiations here.
+Process = BangBangController();
+// List one or more processes to be composed into a system.
+system BangBangController;
+</system>
+	<queries>
+		<query>
+			<formula/>
+			<comment/>
+		</query>
+	</queries>
+</nta>

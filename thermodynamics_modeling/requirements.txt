@@ -7,3 +7,4 @@ pytorch-lightning>=2.3
 numpy 
 pyyaml
 deepxde==1.14.0
+neuromancer

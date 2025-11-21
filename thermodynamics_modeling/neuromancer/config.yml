@@ -1,0 +1,77 @@
+outdir: "./out"
+
+train_data: "./dataset_split/train_data.csv"
+test_data: "./dataset_split/test_data.csv"
+
+dataset:
+  split_ratio: 0.8
+  H: 16
+  batch_size: 64
+
+
+model:
+  patience: 100
+  warmup: 50
+  epochs: 150
+  latent_space_dimensions: 8
+
+outdoor: [
+    "Outdoor:Solar__direct_radiation__east_façade",
+    "Outdoor:Solar__direct_radiation__south_façade",
+    "Outdoor:Solar__direct_radiation__west_façade"
+]
+
+rooms: ["RoomA", "RoomB", "RoomC", "RoomD", "RoomE", "RoomF"]
+
+rooms_temp: [
+    "RoomA:Sensor__room_temperature",
+    "RoomB:Sensor__room_temperature",
+    "RoomC:Sensor__room_temperature",
+    "RoomD:Sensor__room_temperature",
+    "RoomE:Sensor__room_temperature",
+    "RoomF:Sensor__room_temperature",
+]
+
+observations: [
+    "RoomA:Radiator__control_signal__motor_valve",
+    "RoomA:Damper__position",
+    "RoomA:AHU__active",
+    "RoomB:Radiator__control_signal__motor_valve",
+    "RoomB:Damper__position",
+    "RoomB:AHU__active",
+    "RoomC:Radiator__control_signal__motor_valve",
+    "RoomC:Damper__position",
+    "RoomC:AHU__active",
+    "RoomD:Radiator__control_signal__motor_valve",
+    "RoomD:Damper__position",
+    "RoomD:AHU__active",
+    "RoomE:Radiator__control_signal__motor_valve",
+    "RoomE:Damper__position",
+    "RoomE:AHU__active",
+    "RoomF:Radiator__control_signal__motor_valve",
+    "RoomF:Damper__position",
+    "RoomF:AHU__active",
+    "Heating:Control__setpoint_water_temperature__supply",
+    "Ventilation:Sensor__air_temperature__supply"
+]
+
+disturbances: [
+    "Outdoor:Temperature_air", 
+    "solar_sum",
+    "RoomA_is_occupied", 
+    "RoomA:Window__opened_closed",
+    "RoomB_is_occupied", 
+    "RoomB:Window__opened_closed",
+    "RoomC_is_occupied", 
+    "RoomC:Window__opened_closed",
+    "RoomD_is_occupied", 
+    "RoomD:Window__opened_closed",
+    "RoomE_is_occupied", 
+    "RoomE:Window__opened_closed",
+    "RoomF_is_occupied", 
+    "RoomF:Window__opened_closed",
+]
+
+metrics:
+  start_idx: -500
+  end_idx: None

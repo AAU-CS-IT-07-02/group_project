@@ -11,4 +11,6 @@ db_extraction/db_analysis/graphs
 thermodynamics_modeling/data_fragmentation/out
 thermodynamics_modeling/neural_ode/out 
 thermodynamics_modeling/neural_ode/outputs
+thermodynamics_modeling/neuromancer/out
+thermodynamics_modeling/neuromancer/dataset_split
 do_MPC/results
