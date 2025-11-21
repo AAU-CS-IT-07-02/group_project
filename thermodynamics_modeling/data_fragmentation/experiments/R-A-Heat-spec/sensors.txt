@@ -1,0 +1,9 @@
+Heating:DH__energy_accumulated
+Heating:DH__operation_hours_accumulated
+Heating:DH__power
+Heating:DH__water_flow
+Heating:DH__water_flow_accumulated
+Heating:DH__water_temperature__return
+Heating:DH__water_temperature__supply
+Heating:Sensor__water_temperature__return
+Heating:Sensor__water_temperature__supply

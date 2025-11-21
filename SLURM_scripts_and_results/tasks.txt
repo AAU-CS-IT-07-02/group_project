@@ -1,0 +1,1 @@
+--skip-validation --sampling-rate 5 --dt 5 --sensors ../data_fragmentation/out/roomb_4_1_2023_8_05_4_31_2023_20_20/data_sensors.csv --actuators ../data_fragmentation/out/roomb_4_1_2023_8_05_4_31_2023_20_20/data_actuators.csv --configuration ../data_fragmentation/out/roomb_4_1_2023_8_05_4_31_2023_20_20/data_configuration.csv
