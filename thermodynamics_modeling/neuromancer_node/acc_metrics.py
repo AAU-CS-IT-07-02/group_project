@@ -12,7 +12,7 @@ from neuromancer.loss import PenaltyLoss
 from neuromancer.problem import Problem
 from NODE import build_model, get_colums 
 
-with open('config.yml', 'r') as file:
+with open('/home/toita86/Documents/group_project/thermodynamics_modeling/neuromancer_node/config.yml', 'r') as file:
     config = yaml.safe_load(file)
 
 # =============================
@@ -82,6 +82,7 @@ problem.nodes[1].nsteps = Y_seq.shape[1]
 # 5. Run inference
 # =============================
 t1 = time.time()
+
 with torch.no_grad():
     outputs = problem(test_data)
 first_inference_time = time.time() - t1
