@@ -82,7 +82,7 @@ problem.nodes[1].nsteps = Y_seq.shape[1]
 # 5. Run inference
 # =============================
 t1 = time.time()
-print(test_data)
+
 with torch.no_grad():
     outputs = problem(test_data)
 first_inference_time = time.time() - t1
