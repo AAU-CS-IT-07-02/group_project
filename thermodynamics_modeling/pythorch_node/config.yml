@@ -3,17 +3,21 @@ outdir: "./out"
 train_data: "./dataset_split/train_data.csv"
 test_data: "./dataset_split/test_data.csv"
 
+device: "cpu"
+
+num_threads: 2
+
 dataset:
   split_ratio: 0.8
-  H: 24
-  batch_size: 64
+  H: 48
+  batch_size: 256
 
 
 model:
-  patience: 10
-  warmup: 3
-  epochs: 25
-  latent_space_dimensions: 8
+  patience: 3
+  warmup: 2
+  epochs: 20
+  latent_space_dimensions: 16
 
 outdoor: [
     "Outdoor:Solar__direct_radiation__east_façade",
@@ -57,7 +61,6 @@ observations: [
 
 disturbances: [
     "Outdoor:Temperature_air", 
-    "solar_sum",
     "RoomA_is_occupied", 
     "RoomA:Window__opened_closed",
     "RoomB_is_occupied", 

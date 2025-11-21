@@ -2,7 +2,7 @@
 # Minimal Neural ODE training pipeline using only torch, torch.nn, and torchdiffeq.odeint
 # Everything else uses Python's standard library.
 
-import os, csv, math, time, random, yaml
+import os, csv, math, time, random, yaml, argparse
 import torch
 import torch.nn as nn
 from torchdiffeq import odeint
@@ -28,9 +28,52 @@ OUTDIR = config["outdir"]
 os.makedirs(OUTDIR, exist_ok=True)
 
 # -----------------------------
+# Threading configuration
+# -----------------------------
+# Determine desired number of CPU threads. Priority:
+#  1) NUM_THREADS env var
+#  2) config['num_threads'] (if present)
+#  3) OMP_NUM_THREADS env var
+#  4) torch.get_num_threads() (current default)
+num_threads = None
+if 'NUM_THREADS' in os.environ:
+    try:
+        num_threads = int(os.environ['NUM_THREADS'])
+    except Exception:
+        num_threads = None
+elif isinstance(config, dict) and config.get('num_threads') is not None:
+    try:
+        num_threads = int(config.get('num_threads'))
+    except Exception:
+        num_threads = None
+elif 'OMP_NUM_THREADS' in os.environ:
+    try:
+        num_threads = int(os.environ.get('OMP_NUM_THREADS'))
+    except Exception:
+        num_threads = None
+
+if num_threads is None:
+    # fallback to torch default
+    try:
+        num_threads = int(torch.get_num_threads())
+    except Exception:
+        num_threads = 1
+
+# Export env vars used by native libraries and set PyTorch threading
+os.environ['OMP_NUM_THREADS'] = str(num_threads)
+os.environ['MKL_NUM_THREADS'] = str(num_threads)
+try:
+    torch.set_num_threads(num_threads)
+    # inter-op threads control parallelism between operators
+    torch.set_num_interop_threads(num_threads)
+except Exception:
+    pass
+
+print(f"[INFO] Configured CPU threads = {num_threads}")
+
+# -----------------------------
 # 2) Utilities: CSV loading & normalization
 # -----------------------------
-
 def read_csv_as_dicts(path):
     """
     Read a CSV file into a list of dictionaries, one per row, mapping column headers to float values.
@@ -230,32 +273,44 @@ class ControlInterpolator:
         # Ensure t is tensor
         if not torch.is_tensor(t):
             t = torch.tensor(t, dtype=self.t_ref.dtype, device=self.t_ref.device)
-        # Positions via searchsorted
-        # pos = index of first t_ref >= t
-        pos = torch.searchsorted(self.t_ref, t)
-        left = torch.clamp(pos - 1, 0, self.H - 1)
-        right = torch.clamp(pos, 0, self.H - 1)
-        t_left = self.t_ref[left]
-        t_right = self.t_ref[right]
-        # Avoid division by zero if left==right
-        denom = torch.where((t_right - t_left) == 0, torch.ones_like(t_right), (t_right - t_left))
-        alpha = (t - t_left) / denom  # in [0,1]
-        # Gather U_left and U_right
-        if self.has_batch and t.dim() > 0:
-            B = t.shape[0]
-            idx_left = left.view(B, 1, 1).expand(B, 1, self.du)
-            idx_right = right.view(B, 1, 1).expand(B, 1, self.du)
-            # advanced indexing
-            U_left = self.U[torch.arange(B), left]   # [B, d_u]
-            U_right = self.U[torch.arange(B), right] # [B, d_u]
-            u = (1 - alpha.view(B, 1)) * U_left + alpha.view(B, 1) * U_right
-            return u
+        # Convert scalar t to a 1-D tensor for unified processing
+        if t.dim() == 0:
+            t = t.unsqueeze(0)
+
+        # t: [B]
+        B = t.shape[0]
+
+        # Compute insertion positions using only comparison and reduction ops
+        # pos = number of t_ref elements strictly less than t (equivalent to searchsorted side='left')
+        # comp: [B, H]
+        comp = t.unsqueeze(1) > self.t_ref.unsqueeze(0)
+        pos = comp.sum(dim=1)                   # [B], int64
+
+        left = torch.clamp(pos - 1, min=0, max=self.H - 1)   # [B]
+        right = torch.clamp(pos, min=0, max=self.H - 1)      # [B]
+
+        # Gather U_left and U_right (works for both batched U [B,H,d_u] and single U [H,d_u])
+        if self.has_batch:
+            idx = torch.arange(B, device=t.device)
+            U_left = self.U[idx, left]    # [B, d_u]
+            U_right = self.U[idx, right]  # [B, d_u]
         else:
-            # single sample (no batch)
-            U_left = self.U[left] if not self.has_batch else self.U[0, left]
-            U_right = self.U[right] if not self.has_batch else self.U[0, right]
-            u = (1 - alpha) * U_left + alpha * U_right
-            return u
+            # indexing a [H, d_u] tensor with [B] indices produces [B, d_u]
+            U_left = self.U[left]
+            U_right = self.U[right]
+
+        t_left = self.t_ref[left]    # [B]
+        t_right = self.t_ref[right]  # [B]
+        denom = t_right - t_left
+        denom = torch.where(denom == 0, torch.ones_like(denom), denom)
+        alpha = ((t - t_left) / denom).unsqueeze(1)   # [B, 1]
+
+        u = (1 - alpha) * U_left + alpha * U_right   # [B, d_u]
+
+        # If original call expected a single sample (no batch), return [d_u]
+        if not self.has_batch:
+            return u[0]
+        return u
 
 # -----------------------------
 # 5) Neural ODE components
@@ -280,11 +335,11 @@ class ODEFunc(nn.Module):
         self.latent_dim = latent_dim
         self.control_dim = control_dim
         self.net = nn.Sequential(
-            nn.Linear(latent_dim + control_dim, 256),
+            nn.Linear(latent_dim + control_dim, 512),
             nn.Tanh(),
-            nn.Linear(256, 256),
+            nn.Linear(512, 512),
             nn.Tanh(),
-            nn.Linear(256, latent_dim)
+            nn.Linear(512, latent_dim)
         )
         # Will be set externally per batch
         self.control_interp = None
@@ -335,9 +390,9 @@ class Encoder(nn.Module):
     def __init__(self, input_dim, latent_dim):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(input_dim, 256),
+            nn.Linear(input_dim, 512),
             nn.ReLU(),
-            nn.Linear(256, latent_dim)
+            nn.Linear(512, latent_dim)
         )
     def forward(self, x0):
         """
@@ -363,9 +418,9 @@ class Decoder(nn.Module):
     def __init__(self, latent_dim, output_dim):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(latent_dim, 256),
+            nn.Linear(latent_dim, 512),
             nn.ReLU(),
-            nn.Linear(256, output_dim)
+            nn.Linear(512, output_dim)
         )
     def forward(self, z_t):
         """
@@ -462,7 +517,7 @@ def make_dataloader(controls, targets, mean_std_controls, mean_std_targets, batc
     ds = WindowedDataset(controls_n, targets_n, start_idx=start_idx, end_idx=end_idx)
     return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=shuffle, drop_last=True)
 
-def train_loop(model, train_loader, val_loader, epochs, warmup, patience, lr=1e-3, device="cpu"):
+def train_loop(model, train_loader, val_loader, epochs, warmup, patience, lr=1e-3, device="cpu", method='rk4'):
     """
     Training loop for Neural ODE model with early stopping and learning rate warmup.
 
@@ -510,7 +565,7 @@ def train_loop(model, train_loader, val_loader, epochs, warmup, patience, lr=1e-
 
             optimizer.zero_grad()
             # Forward: predict sequence
-            y_hat_seq = model(y0, controls_seq, t_span)   # [H, B, d_y]
+            y_hat_seq = model(y0, controls_seq, t_span, method=method)   # [H, B, d_y]
             # Align dims for loss
             y_hat_seq = y_hat_seq.transpose(0,1)          # [B, H, d_y]
             loss = criterion(y_hat_seq, y_seq)
@@ -532,7 +587,7 @@ def train_loop(model, train_loader, val_loader, epochs, warmup, patience, lr=1e-
                 controls_seq = controls_seq.to(device)
                 y_seq = y_seq.to(device)
                 y0 = y0.to(device)
-                y_hat_seq = model(y0, controls_seq, t_span).transpose(0,1)
+                y_hat_seq = model(y0, controls_seq, t_span, method=method).transpose(0,1)
                 loss = criterion(y_hat_seq, y_seq)
                 val_loss += loss.item() * controls_seq.size(0)
                 n_val += controls_seq.size(0)
@@ -559,7 +614,7 @@ def train_loop(model, train_loader, val_loader, epochs, warmup, patience, lr=1e-
     print(f"Training finished. Best val={best_val:.6f} at epoch {best_epoch}")
     return ckpt_path
 
-def evaluate(model, loader, mean_std_targets, device="cpu"):
+def evaluate(model, loader, mean_std_targets, device="cpu", method='rk4'):
     """
     Evaluate model on a DataLoader and return MAE and RMSE in normalized space.
 
@@ -581,7 +636,7 @@ def evaluate(model, loader, mean_std_targets, device="cpu"):
             controls_seq = controls_seq.to(device)
             y_seq = y_seq.to(device)
             y0 = y0.to(device)
-            y_hat_seq = model(y0, controls_seq, t_span).transpose(0,1)  # [B, H, d_y]
+            y_hat_seq = model(y0, controls_seq, t_span, method=method).transpose(0,1)  # [B, H, d_y]
             err = torch.abs(y_hat_seq - y_seq)                          # [B, H, d_y]
             mae_sum += err.mean().item() * controls_seq.size(0)
             mse = criterion_mse(y_hat_seq, y_seq).mean(dim=(1,2))       # [B]
@@ -599,8 +654,7 @@ def evaluate(model, loader, mean_std_targets, device="cpu"):
 # 7) Main: load data, build loaders, train, evaluate
 # -----------------------------
 def main(device=None):
-    # device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    device = "cpu"
+    device = config["device"]
     print(f"Using device: {device}")
 
     # Load train & test CSVs

@@ -250,4 +250,4 @@ Imagine the prediction horizon as a timeline:
 
 ## Implementation
 
-::: thermodynamics_modeling.neuromancer.NODE
+::: thermodynamics_modeling.neuromancer_node.NODE

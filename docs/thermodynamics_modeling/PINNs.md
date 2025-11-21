@@ -131,8 +131,8 @@ If we don’t know the exact physics, we can:
 
 > prediction on the test Dataser for 2 days
 
-::: thermodynamics_modeling.neural_ode.train_deepxde_supervised
+::: thermodynamics_modeling.deeepxde_pinn.train_deepxde_supervised
 
 # A PINN example with ODE not currently working properly
-::: thermodynamics_modeling.neural_ode.pinn_deepxde_roomA
+::: thermodynamics_modeling.deeepxde_pinn.pinn_deepxde_roomA
 

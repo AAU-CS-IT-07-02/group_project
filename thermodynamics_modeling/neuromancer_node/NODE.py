@@ -23,7 +23,7 @@ from neuromancer.problem import Problem
 from neuromancer.trainer import Trainer
 from neuromancer.loggers import BasicLogger
 
-with open('config.yml', 'r') as file:
+with open('/home/toita86/Documents/group_project/thermodynamics_modeling/neuromancer_node/config.yml', 'r') as file:
     config = yaml.safe_load(file)
 
 def get_colums(df):

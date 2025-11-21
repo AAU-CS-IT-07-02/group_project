@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Evaluate a trained Neural ODE on test_dataset.csv and generate plots.
+Evaluate a trained Neural ODE on test_data.csv and generate plots.
 
 Outputs:
   - Time-series plots (Actual vs Predicted) for each room over selected window(s).
@@ -10,7 +10,7 @@ Outputs:
 
 Run examples:
   python evaluate_and_plot.py \
-      --test ./dataset_split/test_dataset.csv \
+      --test ./dataset_split/test_data.csv \
       --out ./out \
       --H 16 \
       --mode last \
@@ -42,8 +42,8 @@ import runpy
 # -----------------------------
 DEFAULT_OUTDIR = "./out"
 DEFAULT_TEST = "./dataset_split/test_dataset.csv"
-DEFAULT_H = 16
-DEFAULT_LATENT = 8
+DEFAULT_H = 48
+DEFAULT_LATENT = 16
 # Feature lists (controls/targets) are loaded from `config.yml` at runtime.
 ROOMS_TEMP = []
 CONTROL_FEATURES = []
