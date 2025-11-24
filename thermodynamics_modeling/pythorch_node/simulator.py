@@ -31,6 +31,24 @@ DEFAULT_DATA = "./dataset_split/test_data.csv"
 DEFAULT_H = 48
 DEFAULT_LATENT = 16
 
+def run_controller(controller=None, y0=None, controls_seq=None, t_span=None):
+    """
+    This function applies a specified controller to modify the control sequence.
+
+    controller: str, type of controller to apply ("bang bang", "random", etc.)
+    y0: initial state tensor
+    controls_seq: tensor of shape [1, H, d_u], original control sequence
+    t_span: tensor of time steps
+
+    Returns modified controls_seq
+    """
+    if controller == "bang bang":
+        pass
+    elif controller == "random":
+        pass
+    else:
+        return controls_seq
+
 
 def main():
     parser = argparse.ArgumentParser(description="Simulate model over dataset in window intervals.")
@@ -44,6 +62,8 @@ def main():
     parser.add_argument("--show_real", action="store_true", help="Overlay real data on plots")
     parser.add_argument("--solver", type=str, default="rk4", help="ODE solver method")
     parser.add_argument("--dpi", type=int, default=140, help="Plot DPI")
+    parser.add_argument("--controller", default=None, action="store_true", help="Specify which controller to use")
+    
     args = parser.parse_args()
 
     # Default stride to H if not specified
@@ -91,15 +111,15 @@ def main():
     # Load data
     headers, rows = read_csv_as_dicts(args.data)
     controls = build_matrix(rows, CONTROL_FEATURES, device=device)
-    targets = build_matrix(rows, ROOMS_TEMP, device=device)
+    states = build_matrix(rows, ROOMS_TEMP, device=device)
 
     # Normalize
     controls_n = normalize(controls, c_mean, c_std)
-    targets_n = normalize(targets, y_mean, y_std)
+    states_n = normalize(states, y_mean, y_std)
 
     # Build and load model
     d_u = controls.shape[1]
-    d_y = targets.shape[1]
+    d_y = states.shape[1]
     model = NeuralODEModel(latent_dim=args.latent_dim, control_dim=d_u, output_dim=d_y)
     model.load_state_dict(ckpt["model_state"])
     model.to(device)
@@ -128,10 +148,18 @@ def main():
 
     with torch.no_grad():
         while current_idx + args.H <= end:
+            
+            if not args.controller:
+                y0 = states_n[current_idx].unsqueeze(0)                                  # [1, d_y]
+            else:
+                y0 = all_y_pred[-1].unsqueeze(0) if all_y_pred else states_n[current_idx].unsqueeze(0)  # [1, d_y]
+                # TODO: add a mechanism to specify initial state for controller from arguments
             # Extract window
             controls_seq = controls_n[current_idx:current_idx + args.H].unsqueeze(0)  # [1, H, d_u]
-            y_seq_true = targets[current_idx:current_idx + args.H]                     # [H, d_y]
-            y0 = targets_n[current_idx].unsqueeze(0)                                  # [1, d_y]
+            y_seq_true = states[current_idx:current_idx + args.H]                     # [H, d_y]
+            
+            # this function calls a the controller specified by the user
+            controls_seq = run_controller(controller=args.controller, controls_seq=controls_seq, y0=y0, t_span=t_span)
 
             # Inference
             y_hat_seq_norm = model(y0, controls_seq, t_span, method=args.solver).squeeze(1)  # [H, d_y]
