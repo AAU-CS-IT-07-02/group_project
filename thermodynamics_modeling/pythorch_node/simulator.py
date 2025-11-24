@@ -31,6 +31,23 @@ DEFAULT_DATA = "./dataset_split/test_data.csv"
 DEFAULT_H = 48
 DEFAULT_LATENT = 16
 
+def run_controller(controller=None, y0=None, controls_seq=None, t_span=None):
+    """
+    This function applies a specified controller to modify the control sequence.
+
+    controller: str, type of controller to apply ("bang bang", "random", etc.)
+    y0: initial state tensor
+    controls_seq: tensor of shape [1, H, d_u], original control sequence
+    t_span: tensor of time steps
+
+    Returns modified controls_seq
+    """
+    if controller == "bang bang":
+        pass
+    elif controller == "random":
+        pass
+    return controls_seq
+
 
 def main():
     parser = argparse.ArgumentParser(description="Simulate model over dataset in window intervals.")
@@ -44,6 +61,8 @@ def main():
     parser.add_argument("--show_real", action="store_true", help="Overlay real data on plots")
     parser.add_argument("--solver", type=str, default="rk4", help="ODE solver method")
     parser.add_argument("--dpi", type=int, default=140, help="Plot DPI")
+    parser.add_argument("--controller", action="store_true", help="Specify which controller to use")
+    
     args = parser.parse_args()
 
     # Default stride to H if not specified
@@ -132,6 +151,9 @@ def main():
             controls_seq = controls_n[current_idx:current_idx + args.H].unsqueeze(0)  # [1, H, d_u]
             y_seq_true = targets[current_idx:current_idx + args.H]                     # [H, d_y]
             y0 = targets_n[current_idx].unsqueeze(0)                                  # [1, d_y]
+
+            # this function calls a the controller specified by the user
+            controls_seq = run_controller(controller=args.controller, y0=y0, t_span=t_span)
 
             # Inference
             y_hat_seq_norm = model(y0, controls_seq, t_span, method=args.solver).squeeze(1)  # [H, d_y]
