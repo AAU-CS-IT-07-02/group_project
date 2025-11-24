@@ -6,7 +6,11 @@ theme:
 plugins:
   - search
   - mkdocstrings:
-      default_handler: python
+      handlers:
+        python:
+          options:
+            show_source: true            
+            show_root_toc_entry: false
 
 markdown_extensions:
   - pymdownx.arithmatex:
@@ -33,6 +37,7 @@ nav:
       - Dynamic mode decomposition: thermodynamics_modeling/DMD.md
       - PINNs: thermodynamics_modeling/PINNs.md
       - NeuroMANCER: thermodynamics_modeling/NeuroMANCER.md
+      - PyTorch Neural ODE: thermodynamics_modeling/pytorch_NODE.md
   - MPC: do_mpc_setup.md
   - Slurm pipeline: slurm_pipeline.md 
   - List of alternatives: List_of_possible_alternative_methods_for_data.md

@@ -9,8 +9,10 @@ AAU-BUILD-sensor.actuator
 db_extraction/db_analysis/db_analysis_output
 db_extraction/db_analysis/graphs
 thermodynamics_modeling/data_fragmentation/out
-thermodynamics_modeling/neural_ode/out 
-thermodynamics_modeling/neural_ode/outputs
-thermodynamics_modeling/neuromancer/out
-thermodynamics_modeling/neuromancer/dataset_split
+thermodynamics_modeling/deeepxde_pinn/out 
+thermodynamics_modeling/deeepxde_pinn/outputs
+thermodynamics_modeling/neuromancer_node/out
+thermodynamics_modeling/neuromancer_node/dataset_split
+thermodynamics_modeling/pythorch_node/out
+thermodynamics_modeling/pythorch_node/dataset_split
 do_MPC/results
