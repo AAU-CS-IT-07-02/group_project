@@ -12,7 +12,7 @@ from neuromancer.loss import PenaltyLoss
 from neuromancer.problem import Problem
 from NODE import build_model, get_colums 
 
-with open('/home/toita86/Documents/group_project/thermodynamics_modeling/neuromancer_node/config.yml', 'r') as file:
+with open('config.yml', 'r') as file:
     config = yaml.safe_load(file)
 
 # =============================
