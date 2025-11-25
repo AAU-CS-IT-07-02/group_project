@@ -12,3 +12,6 @@ thermodynamics_modeling/data_fragmentation/out
 thermodynamics_modeling/neural_ode/out 
 thermodynamics_modeling/neural_ode/outputs
 do_MPC/results
+libtorch/
+*.zip
+cpp_controller/
