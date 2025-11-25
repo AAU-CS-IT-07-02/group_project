@@ -14,6 +14,8 @@ Run example:
       --end_idx -1 \
       --show_real \
       --solver rk4
+
+python simulator.py --H 48 --start_idx 0 --end_idx -1 --show_real --loop_type closed
 """
 
 import os
@@ -24,6 +26,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 import yaml
 import runpy
+import numpy as np
 
 
 DEFAULT_OUTDIR = "./out"
@@ -46,7 +49,42 @@ def run_controller(controller=None, y0=None, controls_seq=None, t_span=None):
         pass
     elif controller == "random":
         pass
-    return controls_seq
+    else:
+        return controls_seq
+
+
+def log_simulation_step(outdir, current_idx, y0, controls_seq, t_span):
+    """
+    Log simulation step details to console and file.
+    Formats tensors as arrays with comma separators for readability.
+    
+    Args:
+        outdir: Output directory for log file
+        current_idx: Current index in simulation
+        y0: Initial state tensor [1, d_y]
+        controls_seq: Control sequence tensor [1, H, d_u]
+        t_span: Time span tensor [H]
+    """
+    # Convert to numpy
+    y0_np = y0.cpu().numpy()
+    controls_np = controls_seq.cpu().numpy()
+    t_span_np = t_span.cpu().numpy()
+    
+    # Format with comma separators
+    y0_str = np.array2string(y0_np, threshold=np.inf, max_line_width=2000, separator=', ')
+    controls_str = np.array2string(controls_np, threshold=np.inf, max_line_width=2000, separator=', ')
+    t_span_str = np.array2string(t_span_np, threshold=np.inf, max_line_width=2000, separator=', ')
+    
+    # Print to console
+    print(f"Current index: {current_idx}, y0: {y0_str}, controls_seq shape: {controls_np.shape}")
+    
+    # Write to log file
+    log_path = os.path.join(outdir, "simulation_log.txt")
+    with open(log_path, "a") as log_file:
+        log_file.write(f"Current index: {current_idx}\n")
+        log_file.write(f"y0: {y0_str}\n")
+        log_file.write(f"controls_seq: {controls_str}\n")
+        log_file.write(f"t_span: {t_span_str}\n\n")
 
 
 def main():
@@ -61,8 +99,8 @@ def main():
     parser.add_argument("--show_real", action="store_true", help="Overlay real data on plots")
     parser.add_argument("--solver", type=str, default="rk4", help="ODE solver method")
     parser.add_argument("--dpi", type=int, default=140, help="Plot DPI")
-    parser.add_argument("--controller", action="store_true", help="Specify which controller to use")
-    
+    parser.add_argument("--controller", default=None, action="store_true", help="Specify which controller to use")
+    parser.add_argument("--loop_type", type=str, default="open", choices=["open", "closed"], help="Type of simulation loop, open uses real data as initial state, closed uses previous prediction")
     args = parser.parse_args()
 
     # Default stride to H if not specified
@@ -110,15 +148,15 @@ def main():
     # Load data
     headers, rows = read_csv_as_dicts(args.data)
     controls = build_matrix(rows, CONTROL_FEATURES, device=device)
-    targets = build_matrix(rows, ROOMS_TEMP, device=device)
+    states = build_matrix(rows, ROOMS_TEMP, device=device)
 
     # Normalize
     controls_n = normalize(controls, c_mean, c_std)
-    targets_n = normalize(targets, y_mean, y_std)
+    states_n = normalize(states, y_mean, y_std)
 
     # Build and load model
     d_u = controls.shape[1]
-    d_y = targets.shape[1]
+    d_y = states.shape[1]
     model = NeuralODEModel(latent_dim=args.latent_dim, control_dim=d_u, output_dim=d_y)
     model.load_state_dict(ckpt["model_state"])
     model.to(device)
@@ -147,13 +185,21 @@ def main():
 
     with torch.no_grad():
         while current_idx + args.H <= end:
+            if not args.controller and args.loop_type == "open":
+                y0 = states_n[current_idx].unsqueeze(0)                                  # [1, d_y]
+            else:
+                # Closed-loop: use LAST timestep of previous prediction
+                if all_y_pred:
+                    y0 = normalize(all_y_pred[-1][-1, :].unsqueeze(0), y_mean, y_std)  # normalize [1, d_y]
+                else:
+                    y0 = states_n[current_idx].unsqueeze(0)
+                # TODO: add a mechanism to specify initial state for controller from arguments
             # Extract window
             controls_seq = controls_n[current_idx:current_idx + args.H].unsqueeze(0)  # [1, H, d_u]
-            y_seq_true = targets[current_idx:current_idx + args.H]                     # [H, d_y]
-            y0 = targets_n[current_idx].unsqueeze(0)                                  # [1, d_y]
-
+            y_seq_true = states[current_idx:current_idx + args.H]                     # [H, d_y]
+            
             # this function calls a the controller specified by the user
-            controls_seq = run_controller(controller=args.controller, y0=y0, t_span=t_span)
+            controls_seq = run_controller(controller=args.controller, controls_seq=controls_seq, y0=y0, t_span=t_span)
 
             # Inference
             y_hat_seq_norm = model(y0, controls_seq, t_span, method=args.solver).squeeze(1)  # [H, d_y]
@@ -164,9 +210,13 @@ def main():
             all_y_pred.append(y_hat_seq)
             all_idx.append(current_idx)
 
+            # Log simulation step
+            log_simulation_step(args.out, current_idx, y0, controls_seq, t_span)
+
             # Step forward by stride (control horizon)
             current_idx += args.stride
             window_count += 1
+                
 
     print(f"[INFO] Simulated {window_count} windows")
 
