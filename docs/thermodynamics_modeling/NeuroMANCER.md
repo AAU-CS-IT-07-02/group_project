@@ -7,6 +7,7 @@ Neuromancer is a Python library for physics-informed machine learning, enabling 
 
 ### Why NODE?
 Neural ODEs model continuous-time dynamics using differential equations parameterized by neural networks. They are ideal for:
+
 - Capturing complex temporal dependencies.
 - Handling irregular sampling.
 - Providing interpretable latent dynamics.

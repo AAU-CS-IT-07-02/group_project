@@ -5,8 +5,10 @@ Neuromancer NODE example adapted for AAU-BUILD dataset
 # ============================
 # Imports
 # ============================
+import os
 import pandas as pd
 import numpy as np
+import yaml
 import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
@@ -21,6 +23,19 @@ from neuromancer.problem import Problem
 from neuromancer.trainer import Trainer
 from neuromancer.loggers import BasicLogger
 
+with open('config.yml', 'r') as file:
+    config = yaml.safe_load(file)
+
+def get_colums(df):
+    # === Combine solar columns ===
+    df["solar_sum"] = df[config['outdoor']].sum(axis=1)
+
+    # === Select subsets ===
+    Y_df = df[config['rooms_temp']]
+    U_df = df[config['observations']]
+    D_df = df[config['disturbances']]
+
+    return Y_df, U_df, D_df
 
 # =======================================================
 # 1. Data utilities (get_data, get_splits)
@@ -45,24 +60,7 @@ def get_data(csv_path, dt_minutes=5, H=12):
             .resample(f'{dt_minutes}min').mean()
             .interpolate(limit_direction='both'))
 
-    # === Combine solar columns ===
-    df["solar_sum"] = df[[
-        "Outdoor:Solar__direct_radiation__east_façade",
-        "Outdoor:Solar__direct_radiation__south_façade",
-        "Outdoor:Solar__direct_radiation__west_façade"
-    ]].sum(axis=1)
-
-    # === Select subsets ===
-    Y_df = df[["RoomA:Sensor__room_temperature"]]
-    U_df = df[[
-        "RoomA:Radiator__control_signal__motor_valve",
-        "RoomA:Damper__position",
-        "RoomA:AHU__active"
-    ]]
-    D_df = df[[
-        "Outdoor:Temperature_air", "solar_sum",
-        "RoomA_is_occupied", "RoomA:Window__opened_closed"
-    ]]
+    Y_df, U_df, D_df = get_colums(df)
 
     # === Normalization ===
     def zscore_fit(x):
@@ -230,10 +228,11 @@ def train_model(train_loader, dev_loader, test_data, encode_sym, dynamics_model)
     loss = PenaltyLoss(objectives, constraints)
     problem = Problem(nodes, loss)
     # problem.show()
-
+    
+    os.makedirs(config["outdir"], exist_ok=True)
     # Optimizer and trainer
     optimizer = torch.optim.Adam(problem.parameters(), lr=0.003)
-    logger = BasicLogger(args=None, savedir='test', verbosity=1,
+    logger = BasicLogger(args=None, savedir=config["outdir"], verbosity=1,
                          stdout=['dev_loss', 'train_loss'])
 
     trainer = Trainer(
@@ -242,9 +241,9 @@ def train_model(train_loader, dev_loader, test_data, encode_sym, dynamics_model)
         dev_loader,
         test_data,
         optimizer,
-        patience=100,
-        warmup=50,
-        epochs=5,
+        patience=config["model"]["patience"],
+        warmup=config["model"]["warmup"],
+        epochs=config["model"]["epochs"],
         eval_metric="dev_loss",
         train_metric="train_loss",
         dev_metric="dev_loss",
@@ -261,8 +260,7 @@ def train_model(train_loader, dev_loader, test_data, encode_sym, dynamics_model)
 # 4. Main script
 # =======================================================
 if __name__ == "__main__":
-    # CSV = "../../AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv"
-    CSV = "./train_data.csv"
+    CSV = config["train_data"]
 
     # === Load dataset and splits ===
     H = 16       

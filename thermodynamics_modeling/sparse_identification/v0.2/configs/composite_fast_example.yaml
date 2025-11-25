@@ -1,0 +1,27 @@
+# Composite Library Example 3: Fast Linear + Polynomial Combination
+# This provides a good balance of speed and complexity
+# Good for: Quick prototyping and parameter exploration
+
+# Data file paths
+sensors: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_sensors.csv"
+actuators: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_actuators.csv"
+configuration: "../../data_fragmentation/out/R_A_All_May_NS/rooma_5_1_2023_09_05_5_30_2023_22_20/data_configuration.csv"
+
+# Fast composite setup
+feature_libraries: ["identity", "polynomial"]
+library_combination_strategy: "generalized"
+
+# Minimal complexity for speed
+library_parameters:
+  polynomial:
+    degree: 2
+    include_interaction: false
+  # identity has no parameters
+
+# Performance-optimized settings
+threshold: 0.2             # Higher threshold = fewer features = faster
+sampling_rate: 10          # 10x speedup via downsampling
+skip_visualization: true   # Skip plotting for speed
+validation_subsample: 5    # Faster validation
+simulation_timeout: 30     # Shorter timeout
+train_split: 0.6          # Less training data = faster
