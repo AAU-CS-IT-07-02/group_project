@@ -65,14 +65,12 @@ def log_simulation_step(outdir, current_idx, y0, controls_seq, t_span):
         controls_seq: Control sequence tensor [1, H, d_u]
         t_span: Time span tensor [H]
     """
-    # Convert to numpy with full precision
-    old_opts = np.get_printoptions()
-    np.set_printoptions(threshold=np.inf, linewidth=2000, separator=', ')
-    
+    # Convert to numpy
     y0_np = y0.cpu().numpy()
     controls_np = controls_seq.cpu().numpy()
     t_span_np = t_span.cpu().numpy()
     
+    # Format with comma separators
     y0_str = np.array2string(y0_np, threshold=np.inf, max_line_width=2000, separator=', ')
     controls_str = np.array2string(controls_np, threshold=np.inf, max_line_width=2000, separator=', ')
     t_span_str = np.array2string(t_span_np, threshold=np.inf, max_line_width=2000, separator=', ')
@@ -87,9 +85,6 @@ def log_simulation_step(outdir, current_idx, y0, controls_seq, t_span):
         log_file.write(f"y0: {y0_str}\n")
         log_file.write(f"controls_seq: {controls_str}\n")
         log_file.write(f"t_span: {t_span_str}\n\n")
-    
-    # Restore numpy print options
-    np.set_printoptions(**old_opts)
 
 
 def main():
