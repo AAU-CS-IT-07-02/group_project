@@ -27,6 +27,8 @@ import matplotlib.pyplot as plt
 import yaml
 import runpy
 import numpy as np
+import random_controller
+from random_controller import RandomController
 
 
 DEFAULT_OUTDIR = "./out"
@@ -48,7 +50,8 @@ def run_controller(controller=None, y0=None, controls_seq=None, t_span=None):
     if controller == "bang bang":
         pass
     elif controller == "random":
-        pass
+        ctrl = RandomController(scale=0.1)
+        return ctrl.modifyControlsSeq(controls_seq)
     else:
         return controls_seq
 
@@ -99,7 +102,7 @@ def main():
     parser.add_argument("--show_real", action="store_true", help="Overlay real data on plots")
     parser.add_argument("--solver", type=str, default="rk4", help="ODE solver method")
     parser.add_argument("--dpi", type=int, default=140, help="Plot DPI")
-    parser.add_argument("--controller", default=None, action="store_true", help="Specify which controller to use")
+    parser.add_argument("--controller", type=str, default=None, help="Specify which controller to use")
     parser.add_argument("--loop_type", type=str, default="open", choices=["open", "closed"], help="Type of simulation loop, open uses real data as initial state, closed uses previous prediction")
     args = parser.parse_args()
 
