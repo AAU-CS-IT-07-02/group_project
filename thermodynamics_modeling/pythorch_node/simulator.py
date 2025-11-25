@@ -27,30 +27,13 @@ import matplotlib.pyplot as plt
 import yaml
 import runpy
 import numpy as np
+from controllers import get_controller
 
 
 DEFAULT_OUTDIR = "./out"
 DEFAULT_DATA = "./dataset_split/test_data.csv"
 DEFAULT_H = 48
 DEFAULT_LATENT = 16
-
-def run_controller(controller=None, y0=None, controls_seq=None, t_span=None):
-    """
-    This function applies a specified controller to modify the control sequence.
-
-    controller: str, type of controller to apply ("bang bang", "random", etc.)
-    y0: initial state tensor
-    controls_seq: tensor of shape [1, H, d_u], original control sequence
-    t_span: tensor of time steps
-
-    Returns modified controls_seq
-    """
-    if controller == "bang bang":
-        pass
-    elif controller == "random":
-        pass
-    else:
-        return controls_seq
 
 
 def log_simulation_step(outdir, current_idx, y0, controls_seq, t_span):
@@ -99,7 +82,8 @@ def main():
     parser.add_argument("--show_real", action="store_true", help="Overlay real data on plots")
     parser.add_argument("--solver", type=str, default="rk4", help="ODE solver method")
     parser.add_argument("--dpi", type=int, default=140, help="Plot DPI")
-    parser.add_argument("--controller", default=None, action="store_true", help="Specify which controller to use")
+    parser.add_argument("--controller", type=str, default=None, help="Controller type: 'PID', 'Deadband', 'Noop', or None")
+    parser.add_argument("--setpoint", type=float, default=25.0, help="Target room temperature setpoint in °C")
     parser.add_argument("--loop_type", type=str, default="open", choices=["open", "closed"], help="Type of simulation loop, open uses real data as initial state, closed uses previous prediction")
     args = parser.parse_args()
 
@@ -175,6 +159,12 @@ def main():
     # Time vector for ODE
     t_span = torch.linspace(0, args.H - 1, args.H, dtype=torch.float32, device=device)
 
+    # Initialize controller if specified
+    controller = None
+    if args.controller:
+        controller = get_controller(args.controller, setpoint=args.setpoint)
+        print(f"[INFO] Using controller: {args.controller} (setpoint={args.setpoint}°C)")
+
     # Simulation loop
     all_y_true = []
     all_y_pred = []
@@ -185,7 +175,7 @@ def main():
 
     with torch.no_grad():
         while current_idx + args.H <= end:
-            if not args.controller and args.loop_type == "open":
+            if not controller and args.loop_type == "open":
                 y0 = states_n[current_idx].unsqueeze(0)                                  # [1, d_y]
             else:
                 # Closed-loop: use LAST timestep of previous prediction
@@ -193,13 +183,13 @@ def main():
                     y0 = normalize(all_y_pred[-1][-1, :].unsqueeze(0), y_mean, y_std)  # normalize [1, d_y]
                 else:
                     y0 = states_n[current_idx].unsqueeze(0)
-                # TODO: add a mechanism to specify initial state for controller from arguments
             # Extract window
             controls_seq = controls_n[current_idx:current_idx + args.H].unsqueeze(0)  # [1, H, d_u]
             y_seq_true = states[current_idx:current_idx + args.H]                     # [H, d_y]
             
-            # this function calls a the controller specified by the user
-            controls_seq = run_controller(controller=args.controller, controls_seq=controls_seq, y0=y0, t_span=t_span)
+            # Apply controller if specified
+            if controller:
+                controls_seq = controller.apply(controls_seq, y0, y_mean, y_std, c_mean, c_std)
 
             # Inference
             y_hat_seq_norm = model(y0, controls_seq, t_span, method=args.solver).squeeze(1)  # [H, d_y]
