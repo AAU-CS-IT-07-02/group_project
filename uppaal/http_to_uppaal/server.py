@@ -1,17 +1,32 @@
-"""Simple FastAPI server that preloads a model and exposes /predict.
+"""
+Simple FastAPI server that preloads a model and exposes `/predict`.
 
 Behavior:
+
 - If `model.pt` exists in this folder, attempt to load with `torch.jit.load` or `torch.load`.
 - If PyTorch or model file is missing, fall back to a deterministic dummy function.
 
 Endpoint:
-POST /predict
-body: {"input": [[x1, x2, ...], ...]}  # batch of input vectors
+`POST /predict`
+
+body: 
+```
+{
+  "y0": [v1, v2, ...],          # initial output vector
+  "controls": [[u11, u12, ...],  # list of control vectors
+               [u21, u22, ...],
+  "method": "rk4",
+  "is_normalized": 0
+}  # batch of input vectors
+
 resp: {"prediction": [y1, y2, ...]}  # one output per input row
+```
 
 Run locally:
+```
 $ pip install -r requirements.txt
 $ uvicorn server:app --host 127.0.0.1 --port 8000
+```
 """
 from typing import List, Optional
 from pathlib import Path
@@ -32,7 +47,7 @@ import yaml
 
 # Paths for locating the training module and default model output
 BASE_DIR = Path(__file__).resolve().parent.parent
-PYTORCH_NODE_DIR = BASE_DIR.parent / "pythorch_node"
+PYTORCH_NODE_DIR = BASE_DIR.parent / "thermodynamics_modeling" / "pythorch_node"
 TRAINER_MODULE = PYTORCH_NODE_DIR / "torchdiffeq_model.py"
 CONFIG_YML = PYTORCH_NODE_DIR / "config.yml"
 # Default model output directory (the training scripts save scalers.pt / best_model.pt here)
@@ -48,10 +63,29 @@ class SeqInput(BaseModel):
 
 
 class ModelWrapper:
-    """Wraps either a lightweight fallback or the trained NeuralODE model (when available).
-
-    At init time this will attempt to load the trainer symbols (NeuralODEModel, normalize,
-    denormalize) and then load scalers and checkpoint from a model output directory.
+    """
+    High-level container for loading a trained NeuralODE model, its associated
+    scalers, and running sequential predictions. The wrapper provides a safe
+    fallback deterministic behaviour when PyTorch or expected artifacts are
+    unavailable, and exposes a single convenience method predict_sequence for
+    running multi-step inference.
+    
+    Behavior summary
+    
+    - On initialization, attempts to locate and import a trainer module (expected
+        to provide: NeuralODEModel, normalize, denormalize), read configuration to
+        infer a latent dimension, and load scalers and a checkpoint from a model
+        output directory. The model output directory can be provided via the
+        model_out_dir parameter or overridden by the environment variable
+        MODEL_OUT_DIR; a module-level DEFAULT_MODEL_OUT is used as a last resort.
+    - If any required dependency, module, or file is missing (e.g. TORCH not
+        available, trainer module not found, scalers/checkpoint absent, or load
+        errors), the wrapper falls back to a deterministic simple predictor and
+        sets .model to None.
+    - When a checkpoint lacks explicit metadata about latent dimension, a
+        default latent_dim=16 is used.
+    - Loaded NeuralODE model is constructed with the inferred control/output
+        dimensions (from scalers) and the latent dimension, then put into eval mode.
     """
 
     def __init__(self, model_out_dir: Optional[Path] = None):
@@ -225,18 +259,28 @@ model = ModelWrapper()
 
 @app.get("/health")
 def health():
+    """
+    GET endpoint for health check.
+
+    Response:
+
+      {"ok": True, "model_loaded": bool}
+    """
     return {"ok": True, "model_loaded": model.model is not None}
 
 
 @app.post("/infer")
 def infer(req: SeqInput):
-    """Run time-series inference.
+    """
+    POST endpoint for running model inference.
 
     Request JSON:
-      {"y0": [..], "controls": [[...], ...], "method": "rk4"}
+
+      `{"y0": [..], "controls": [[...], ...], "method": "rk4", "is_normalized": 1}`
 
     Response:
-      {"prediction": [[...], ...]}  # list of H output vectors (denormalized)
+    
+      `{"prediction": [[...], ...]}  # the predicted output sequence normalized or denormalized based on is_normalized flag`
     """
     try:
         preds = model.predict_sequence(req.y0, req.controls, method=req.method, debug=req.debug, is_normalized=req.is_normalized)

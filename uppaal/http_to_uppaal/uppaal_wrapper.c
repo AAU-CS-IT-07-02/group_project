@@ -124,21 +124,23 @@ static char *build_payload_from_flat(const double *y0, int y0_len,
     return s;
 }
 
-// UPPAAL-friendly wrapper: 6 y0 values + 36 flattened control doubles
-//
-// Convenience function kept for backwards compatibility. It performs a
-// synchronous HTTP POST to the server and returns a single scalar value for
-// the requested `room_id` from the first predicted output row.
-//
-// Notes:
-//  - `room_id` must be in the range [0, NUM_ROOMS-1] for sensible results.
-//  - The call is blocking and has a short timeout (3 seconds set via libcurl).
-//  - If the HTTP request fails, the JSON payload is malformed, or the requested
-//    index is not present, the function returns `NAN`.
-//
-// This function is useful when UPPAAL only needs a single room value per call.
-// If you need all room temperatures at once, prefer calling
-// `uppaal_nn_update(...)` followed by repeated `uppaal_nn_get_pred(i)` calls.
+/*
+UPPAAL-friendly wrapper: 6 y0 values + 36 flattened control doubles
+
+Convenience function kept for backwards compatibility. It performs a
+synchronous HTTP POST to the server and returns a single scalar value for
+the requested `room_id` from the first predicted output row.
+
+Notes:
+ - `room_id` must be in the range [0, NUM_ROOMS-1] for sensible results.
+ - The call is blocking and has a short timeout (3 seconds set via libcurl).
+ - If the HTTP request fails, the JSON payload is malformed, or the requested
+   index is not present, the function returns `NAN`.
+
+This function is useful when UPPAAL only needs a single room value per call.
+If you need all room temperatures at once, prefer calling
+`uppaal_nn_update(...)` followed by repeated `uppaal_nn_get_pred(i)` calls.
+*/
 double uppaal_nn_infer_scalar_fixed(int room_id,
     double y0_0,double y0_1,double y0_2,double y0_3,double y0_4,double y0_5,
     double c0,double c1,double c2,double c3,double c4,double c5,double c6,double c7,double c8,double c9,
