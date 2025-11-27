@@ -2,8 +2,10 @@ import torch
 
 def bang_bang_control(y0, controls_seq, scalers, controller_map, setpoint=21.0):
     """
-    Deadband Controller with FIXED Thresholds (20.5 - 22.5).
-    This version produced the graph you liked.
+    Dynamic Deadband Controller.
+    - Radiator: 0.0 (Off) to 100.0 (Max Heat).
+    - Damper: 0.0 (Closed) to 100.0 (Max Open).
+    - AHU: 14.0 (Closed/Off) to 1.0 (Open/Cooling).
     """
     device = y0.device
     
@@ -14,18 +16,23 @@ def bang_bang_control(y0, controls_seq, scalers, controller_map, setpoint=21.0):
 
     y0_real = y0 * y_std + y_mean 
 
-    # --- HARDCODED THRESHOLDS (The "Good Graph" Settings) ---
-    HEAT_START_TEMP = 21.4
-    COOL_START_TEMP = 21.6
+    # --- DYNAMIC SETTINGS ---
+    deadband_width = 0.1
     
-    # Actuator Settings
-    RAD_ON = 1.0    
+    # Thresholds
+    HEAT_START_TEMP = setpoint - deadband_width
+    COOL_START_TEMP = setpoint + deadband_width
+    
+    # --- ACTUATOR SETTINGS (0 to 100) ---
+    RAD_ON = 10.0    # Changed from 1.0
     RAD_OFF = 0.0
     
-    DAMP_OPEN = 1.0  
+    DAMP_OPEN = 100.0 # Changed from 1.0
     DAMP_SHUT = 0.0
     
-    AHU_ON = 1.0
+    # AHU (Inverted Logic: 1=Open, 14=Closed)
+    # Kept as is because these are specific machine states, not percentages
+    AHU_COOLING_ACTIVE = 1.0   
     AHU_OFF = 14.0
 
     for item in controller_map:
@@ -42,24 +49,24 @@ def bang_bang_control(y0, controls_seq, scalers, controller_map, setpoint=21.0):
         act_ahu = AHU_OFF
 
         if current_temp <= HEAT_START_TEMP:
-            # Too Cold -> Heat
+            # HEATING MODE
             act_rad = RAD_ON
             act_damp = DAMP_SHUT
-            act_ahu = AHU_ON
+            act_ahu = AHU_OFF 
             
         elif current_temp >= COOL_START_TEMP:
-            # Too Hot -> Cool
+            # COOLING MODE
             act_rad = RAD_OFF
             act_damp = DAMP_OPEN
-            act_ahu = AHU_OFF
+            act_ahu = AHU_COOLING_ACTIVE 
             
         else:
-            # Comfort Zone -> Idle
+            # DEADBAND (Idle)
             act_rad = RAD_OFF
             act_damp = DAMP_SHUT
             act_ahu = AHU_OFF
 
-        # Apply
+        # Apply Values
         if rad_idx is not None:
             controls_seq[:, :, rad_idx] = (act_rad - c_mean[rad_idx]) / c_std[rad_idx]
         if damp_idx is not None:

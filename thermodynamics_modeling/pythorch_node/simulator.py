@@ -106,12 +106,6 @@ def run_simulation_loop(model, controls_n, states_n, states_denorm, args, scaler
             # Extract Window
             controls_seq = controls_n[current_idx:current_idx + args.H].unsqueeze(0)
             
-            # --- WEATHER BLOCKER ---
-            if args.ignore_weather:
-                for feat_idx, feat_name in enumerate(control_feature_names):
-                    if "Solar" in feat_name or "Outdoor" in feat_name:
-                        controls_seq[:, :, feat_idx] = 0.0
-            # -----------------------
 
             # Controller Logic
             if use_controller and args.controller:
@@ -154,7 +148,7 @@ def main():
     parser.add_argument("--data", type=str, default=DEFAULT_DATA, help="Path to data CSV")
     parser.add_argument("--out", type=str, default=DEFAULT_OUTDIR, help="Output directory")
     parser.add_argument("--H", type=int, default=DEFAULT_H, help="Prediction horizon")
-    parser.add_argument("--stride", type=int, default=48, help="Control horizon / step size")
+    parser.add_argument("--stride", type=int, default=1, help="Control horizon / step size")
     parser.add_argument("--latent_dim", type=int, default=DEFAULT_LATENT, help="Latent dimension")
     parser.add_argument("--start_idx", type=int, default=0, help="Start index")
     parser.add_argument("--end_idx", type=int, default=-1, help="End index")
