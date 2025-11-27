@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>/* Load the shared library (absolute path recommended) */
+import "&lt;abs_path_to_shared_object&gt;/http_to_uppaal/libuppaal_nn.so" {
+
+
+/* Declare the external function (must match the C signature exactly).
+   This wrapper expects: 6 y0 values followed by 36 control doubles (flattened).
+*/
+int uppaal_nn_update(
+    double y0_0,double y0_1,double y0_2,double y0_3,double y0_4,double y0_5,
+    double c0,double c1,double c2,double c3,double c4,double c5,
+    double c6,double c7,double c8,double c9,double c10,double c11,
+    double c12,double c13,double c14,double c15,double c16,double c17,
+    double c18,double c19,double c20,double c21,double c22,double c23,
+    double c24,double c25,double c26,double c27,double c28,double c29,
+    double c30,double c31,double c32,double c33,double c34,double c35
+);
+
+double uppaal_nn_get_pred(int room_id);
+
+};
+
+int succ = 0;
+const double low = 20;
+const double high = 21.5;
+
+double t_a = 22.04;
+double t_b = 21.61;
+double t_c = 21.61;
+
+double t_d = 20.87;
+double t_e = 20.89;
+double t_f = 20.82;
+
+double actuator_rooms = 1; /*values min 1 max is 14*/
+double rad_sign = 60;
+// double actuator_roomb = 1;
+//double actuator_roomc = 1;
+
+//double actuator_roomd = 1;
+//double actuator_roome = 1;
+//double actuator_roomf = 1;</declaration>
+	<template>
+		<name>Tester</name>
+		<location id="id0" x="-2779" y="-1479">
+			<name x="-2789" y="-1513">OFF</name>
+		</location>
+		<location id="id1" x="-2532" y="-1479">
+			<name x="-2542" y="-1513">ON</name>
+		</location>
+		<init ref="id0"/>
+		<transition id="id2">
+			<source ref="id1"/>
+			<target ref="id0"/>
+			<label kind="guard" x="-2839" y="-1385">(t_a + t_b + t_c + t_d + t_e + t_f)/6 &lt;= low</label>
+			<label kind="assignment" x="-2728" y="-1360">actuator_rooms = 1,
+rad_sign = 60</label>
+			<nail x="-2651" y="-1420"/>
+		</transition>
+		<transition id="id3">
+			<source ref="id0"/>
+			<target ref="id0"/>
+			<label kind="assignment" x="-3391" y="-1589">succ = uppaal_nn_update(
+	t_a,t_b,t_c,t_d,t_e,t_f,
+	rad_sign,  0.0000,  actuator_rooms,  rad_sign,  0.0000,
+	actuator_rooms,  rad_sign,  0.0000,  actuator_rooms,  rad_sign,  
+	0.0000,  actuator_rooms,  rad_sign,  0.0000,  actuator_rooms,  
+	rad_sign,  0.0000,  actuator_rooms, 58.3575, 22.6200,  
+	1.0069,  0.0000,  0.0000,  0.0000,  0.0000,  
+	0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  
+	0.0000,  0.0000,  0.0000,  3.1708,  2.8087,  5.5348
+),
+t_a = uppaal_nn_get_pred(0),
+t_b = uppaal_nn_get_pred(1),
+t_c = uppaal_nn_get_pred(2),
+
+t_d = uppaal_nn_get_pred(3),
+t_e = uppaal_nn_get_pred(4),
+t_f = uppaal_nn_get_pred(5)</label>
+			<nail x="-2839" y="-1530"/>
+			<nail x="-2830" y="-1420"/>
+		</transition>
+		<transition id="id4">
+			<source ref="id1"/>
+			<target ref="id1"/>
+			<label kind="assignment" x="-2405" y="-1589">succ = uppaal_nn_update(
+	t_a,t_b,t_c,t_d,t_e,t_f,
+	rad_sign,  0.0000,  actuator_rooms,  rad_sign,  0.0000,
+	actuator_rooms,  rad_sign,  0.0000,  actuator_rooms,  rad_sign,  
+	0.0000,  actuator_rooms,  rad_sign,  0.0000,  actuator_rooms,  
+	rad_sign,  0.0000,  actuator_rooms, 58.3575, 22.6200,  
+	1.0069,  0.0000,  0.0000,  0.0000,  0.0000,  
+	0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  
+	0.0000,  0.0000,  0.0000,  3.1708,  2.8087,  5.5348
+),
+t_a = uppaal_nn_get_pred(0),
+t_b = uppaal_nn_get_pred(1),
+t_c = uppaal_nn_get_pred(2),
+
+t_d = uppaal_nn_get_pred(3),
+t_e = uppaal_nn_get_pred(4),
+t_f = uppaal_nn_get_pred(5)</label>
+			<nail x="-2490" y="-1530"/>
+			<nail x="-2490" y="-1437"/>
+		</transition>
+		<transition id="id5">
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="guard" x="-2830" y="-1564">(t_a + t_b + t_c + t_d + t_e + t_f)/6 &gt;= high</label>
+			<label kind="assignment" x="-2737" y="-1606">actuator_rooms = 14,
+rad_sign = 0</label>
+			<nail x="-2651" y="-1539"/>
+		</transition>
+	</template>
+	<system>// Place template instantiations here.
+Process = Tester();
+// List one or more processes to be composed into a system.
+system Tester;
+
+</system>
+	<queries>
+		<query>
+			<formula/>
+			<comment/>
+		</query>
+	</queries>
+</nta>
