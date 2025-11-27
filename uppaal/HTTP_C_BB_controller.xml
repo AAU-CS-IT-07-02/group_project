@@ -36,14 +36,9 @@ double t_f = 20.82;
 
 double actuator_rooms = 1; /*values min 1 max is 14*/
 double rad_sign = 60;
-// double actuator_roomb = 1;
-//double actuator_roomc = 1;
-
-//double actuator_roomd = 1;
-//double actuator_roome = 1;
-//double actuator_roomf = 1;</declaration>
+</declaration>
 	<template>
-		<name>Tester</name>
+		<name>BB</name>
 		<location id="id0" x="-2779" y="-1479">
 			<name x="-2789" y="-1513">OFF</name>
 		</location>
@@ -115,9 +110,9 @@ rad_sign = 0</label>
 		</transition>
 	</template>
 	<system>// Place template instantiations here.
-Process = Tester();
+Process = BB();
 // List one or more processes to be composed into a system.
-system Tester;
+system BB;
 
 </system>
 	<queries>
