@@ -16,3 +16,6 @@ thermodynamics_modeling/neuromancer_node/dataset_split
 thermodynamics_modeling/pythorch_node/out
 thermodynamics_modeling/pythorch_node/dataset_split
 do_MPC/results
+cpp_controller/
+libtorch/
+*.zip
