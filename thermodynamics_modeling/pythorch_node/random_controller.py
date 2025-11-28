@@ -1,16 +1,13 @@
 import torch
-import random
-
-DISCRETE_DIM = [2,3] # According to the paper, AHU__active is the discrete variable with the most
-                     # unique values (3)
 
 class RandomController:
     """
     Random controller for Neural ODE simulator.
     """
 
-    def __init__(self, scale=0.5):
+    def __init__(self, control_feats, scale=0.5):
         self.scale = scale
+        self.control_feats = control_feats
 
     def modifyControlsSeq(self, controls_seq):    
         """
@@ -28,12 +25,13 @@ class RandomController:
         new_controls = torch.zeros_like(controls_seq)
 
         for i in range(d_u):
-
-            vals = torch.unique(controls_seq[0,:,i])
-            length = len(vals)
-
-            # Discrete values 
-            if length == DISCRETE_DIM[0] or length == DISCRETE_DIM[1]:
+            # Discrete values
+            # FYI: some data has noise in at least one room, which is not ideal
+            if "AHU__active" in self.control_feats[i] \
+             or "Window__opened_closed" in self.control_feats[i] \
+             or "is_occupied" in self.control_feats[i]:
+                vals = torch.unique(controls_seq[0,:,i])
+                length = len(vals)
                 idx = torch.randint(0, length, (H, 1), device=vals.device)
                 rand_values = vals[idx]
             else:

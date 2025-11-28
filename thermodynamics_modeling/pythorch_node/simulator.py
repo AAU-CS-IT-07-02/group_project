@@ -36,7 +36,7 @@ DEFAULT_DATA = "./dataset_split/test_data.csv"
 DEFAULT_H = 48
 DEFAULT_LATENT = 16
 
-def run_controller(controller=None, y0=None, controls_seq=None, t_span=None):
+def run_controller(controller=None, y0=None, controls_seq=None, t_span=None, control_feats=None):
     """
     This function applies a specified controller to modify the control sequence.
 
@@ -50,7 +50,7 @@ def run_controller(controller=None, y0=None, controls_seq=None, t_span=None):
     if controller == "bang bang":
         pass
     elif controller == "random":
-        ctrl = RandomController(scale=0.1)
+        ctrl = RandomController(control_feats=control_feats, scale=0.1)
         return ctrl.modifyControlsSeq(controls_seq)
     else:
         return controls_seq
@@ -202,7 +202,7 @@ def main():
             y_seq_true = states[current_idx:current_idx + args.H]                     # [H, d_y]
             
             # this function calls a the controller specified by the user
-            controls_seq = run_controller(controller=args.controller, controls_seq=controls_seq, y0=y0, t_span=t_span)
+            controls_seq = run_controller(controller=args.controller, controls_seq=controls_seq, y0=y0, t_span=t_span, control_feats=CONTROL_FEATURES)
 
             # Inference
             y_hat_seq_norm = model(y0, controls_seq, t_span, method=args.solver).squeeze(1)  # [H, d_y]
