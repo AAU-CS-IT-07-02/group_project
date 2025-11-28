@@ -284,7 +284,7 @@ def infer(req: SeqInput):
     """
     try:
         preds = model.predict_sequence(req.y0, req.controls, method=req.method, debug=req.debug, is_normalized=req.is_normalized)
-        print("Inference successful.", preds)
+        print("[INFO]: Inference successful.", preds)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"prediction": preds}
