@@ -10,4 +10,4 @@
 >
 >ASGI, or Asynchronous Server Gateway Interface, is a specification between web servers and Python web applications or frameworks to allow for greater concurrency and is the evolution of the traditional WSGI. With the rise of asynchronous frameworks and applications, ASGI provides a way to handle a large number of simultaneous connections, something that’s perfect for modern web needs like WebSockets, HTTP2, and long polling.
 
-this is a little extract from this [medium post](https://plainenglish.io/blog/everything-you-need-to-know-about-uvicorn)
+this is a little extract from this [blog post](https://plainenglish.io/blog/everything-you-need-to-know-about-uvicorn)
