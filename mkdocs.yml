@@ -39,5 +39,9 @@ nav:
       - NeuroMANCER: thermodynamics_modeling/NeuroMANCER.md
       - PyTorch Neural ODE: thermodynamics_modeling/pytorch_NODE.md
   - MPC: do_mpc_setup.md
+  - UPPAAAL Integration:
+      - Integration Architecture: uppaal/integration_architecture.md
+      - Server: uppaal/server.md
+      - C Wrapper: uppaal/uppaal_wrapper.md
   - Slurm pipeline: slurm_pipeline.md 
   - List of alternatives: List_of_possible_alternative_methods_for_data.md
