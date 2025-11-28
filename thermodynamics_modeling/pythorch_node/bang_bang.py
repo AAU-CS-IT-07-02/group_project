@@ -2,10 +2,11 @@ import torch
 
 def bang_bang_control(y0, controls_seq, scalers, controller_map, setpoint=21.0):
     """
-    Dynamic Deadband Controller.
-    - Radiator: 0.0 (Off) to 100.0 (Max Heat).
-    - Damper: 0.0 (Closed) to 100.0 (Max Open).
-    - AHU: 14.0 (Closed/Off) to 1.0 (Open/Cooling).
+    Dynamic Bang-Bang Controller.
+    - Deadband: 0.1 (Tight Control).
+    - Radiator: 0 (Off) to 100 (Max).
+    - Damper: 0 (Closed) to 100 (Max).
+    - AHU: 14 (Closed/Off) to 1 (Open/Cooling).
     """
     device = y0.device
     
@@ -16,22 +17,20 @@ def bang_bang_control(y0, controls_seq, scalers, controller_map, setpoint=21.0):
 
     y0_real = y0 * y_std + y_mean 
 
-    # --- DYNAMIC SETTINGS ---
-    deadband_width = 0.1
+    # --- SETTINGS ---
+    deadband_width = 0.1  # <--- CHANGED to 0.1
     
-    # Thresholds
-    HEAT_START_TEMP = setpoint - deadband_width
-    COOL_START_TEMP = setpoint + deadband_width
+    HEAT_START_TEMP = setpoint - deadband_width # e.g. 21.4
+    COOL_START_TEMP = setpoint + deadband_width # e.g. 21.6
     
-    # --- ACTUATOR SETTINGS (0 to 100) ---
-    RAD_ON = 10.0    # Changed from 1.0
+    # Actuators (0-100)
+    RAD_ON = 100.0    
     RAD_OFF = 0.0
     
-    DAMP_OPEN = 100.0 # Changed from 1.0
+    DAMP_OPEN = 100.0  
     DAMP_SHUT = 0.0
     
-    # AHU (Inverted Logic: 1=Open, 14=Closed)
-    # Kept as is because these are specific machine states, not percentages
+    # AHU (1=Cooling, 14=Off)
     AHU_COOLING_ACTIVE = 1.0   
     AHU_OFF = 14.0
 
@@ -43,7 +42,7 @@ def bang_bang_control(y0, controls_seq, scalers, controller_map, setpoint=21.0):
         
         current_temp = y0_real[0, room_idx].item()
 
-        # Initialize to IDLE
+        # Default to IDLE
         act_rad = RAD_OFF
         act_damp = DAMP_SHUT
         act_ahu = AHU_OFF
@@ -52,13 +51,13 @@ def bang_bang_control(y0, controls_seq, scalers, controller_map, setpoint=21.0):
             # HEATING MODE
             act_rad = RAD_ON
             act_damp = DAMP_SHUT
-            act_ahu = AHU_OFF 
+            act_ahu = AHU_OFF
             
         elif current_temp >= COOL_START_TEMP:
             # COOLING MODE
             act_rad = RAD_OFF
             act_damp = DAMP_OPEN
-            act_ahu = AHU_COOLING_ACTIVE 
+            act_ahu = AHU_COOLING_ACTIVE
             
         else:
             # DEADBAND (Idle)
@@ -66,7 +65,7 @@ def bang_bang_control(y0, controls_seq, scalers, controller_map, setpoint=21.0):
             act_damp = DAMP_SHUT
             act_ahu = AHU_OFF
 
-        # Apply Values
+        # Apply
         if rad_idx is not None:
             controls_seq[:, :, rad_idx] = (act_rad - c_mean[rad_idx]) / c_std[rad_idx]
         if damp_idx is not None:

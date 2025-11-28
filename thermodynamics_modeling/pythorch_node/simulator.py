@@ -2,14 +2,9 @@
 # -*- coding: utf-8 -*-
 """
 Simulator: Loop-based inference with pluggable controller integration.
-Visualization: Clean Multi-Colored Lines.
-Features: 
-  - Tri-Actuator Support (Radiator, Damper, AHU).
-  - Merged logic from teammate's AHU discovery.
-  - Corrects defaults (Stride=1, Latent=32).
-
+Visualization: Simple Comparison (Blue=Baseline, Red=Predicted).
 Run example:
-  python simulator.py --controller bang_bang --setpoint 21.5
+  python simulator.py --controller bang_bang --setpoint 21.5 --start_idx 0 --end_idx 1000
 """
 
 import os
@@ -18,12 +13,12 @@ import argparse
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import yaml
 import runpy
 import numpy as np
 import random
 
-# --- 1. Determinism ---
 def set_seed(seed=42):
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -35,7 +30,6 @@ def set_seed(seed=42):
 
 set_seed(42)
 
-# --- 2. Import Controller ---
 try:
     import bang_bang
 except ImportError:
@@ -48,66 +42,60 @@ DEFAULT_H = 48
 DEFAULT_LATENT = 32 
 
 def run_controller_dispatcher(controller_name, y0, controls_seq, t_span, scalers, controller_map, setpoint=None):
-    """Dispatcher: Decides which controller logic to apply."""
-    if not controller_name:
-        return controls_seq
-        
+    if not controller_name: return controls_seq
     if controller_name == "bang_bang":
-        if bang_bang is None:
-            print("[WARN] bang_bang.py is missing.")
-            return controls_seq
-        
-        # Use CLI setpoint if provided
+        if bang_bang is None: return controls_seq
         if setpoint is not None:
             return bang_bang.bang_bang_control(y0, controls_seq, scalers, controller_map, setpoint=setpoint)
         else:
             return bang_bang.bang_bang_control(y0, controls_seq, scalers, controller_map)
-    
     elif controller_name == "random":
-        if bang_bang is None: 
-            return controls_seq
         return bang_bang.random_control(controls_seq)
-    
-    else:
-        print(f"[WARN] Controller '{controller_name}' not implemented. Using default.")
-        return controls_seq
+    return controls_seq
 
 
 def run_simulation_loop(model, controls_n, states_n, states_denorm, args, scalers, controller_map, device, normalize_fn, denormalize_fn, control_feature_names, use_controller=False):
-    """
-    Runs the simulation loop. Handles disturbance blocking if requested.
-    """
     T = controls_n.shape[0]
     start = max(0, args.start_idx)
     end = min(T, args.end_idx) if args.end_idx != -1 else T
-    
     t_span = torch.linspace(0, args.H - 1, args.H, dtype=torch.float32, device=device)
 
     all_y_pred = []
     all_controls = []
-    
     current_idx = start
     window_count = 0
-    
     y0 = states_n[current_idx].unsqueeze(0)
+
+    # Pre-calculate indices for hardcoded modifications
+    solar_indices = [i for i, n in enumerate(control_feature_names) if "Solar" in n or "Outdoor" in n or "occupied" in n]
+    ac_supply_indices = [i for i, n in enumerate(control_feature_names) if "Ventilation" in n and "temperature" in n and "supply" in n]
+    
+    norm_ac_val = 0.0
+    if ac_supply_indices:
+        idx = ac_supply_indices[0]
+        target_ac = 16.0
+        norm_ac_val = (target_ac - scalers['c_mean'][idx]) / scalers['c_std'][idx]
 
     total_steps = (end - start) // args.stride
     print(f"   -> Steps to simulate: {total_steps}")
 
     with torch.no_grad():
         while current_idx + args.H <= end:
-            # Closed Loop Logic
             if all_y_pred:
                 y0_prev_denorm = all_y_pred[-1][-1, :].unsqueeze(0) 
                 y0 = normalize_fn(y0_prev_denorm, scalers['y_mean'], scalers['y_std']) 
             else:
                 y0 = states_n[current_idx].unsqueeze(0)
 
-            # Extract Window
             controls_seq = controls_n[current_idx:current_idx + args.H].unsqueeze(0)
             
+            
+            if solar_indices:
+                controls_seq[:, :, solar_indices] = 0.0
+            
+            if ac_supply_indices:
+                controls_seq[:, :, ac_supply_indices] = norm_ac_val
 
-            # Controller Logic
             if use_controller and args.controller:
                 controls_seq = run_controller_dispatcher(
                     controller_name=args.controller, 
@@ -121,7 +109,6 @@ def run_simulation_loop(model, controls_n, states_n, states_denorm, args, scaler
             
             all_controls.append(controls_seq.squeeze(0)[:args.stride])
 
-            # Inference
             y_hat_seq_norm = model(y0, controls_seq, t_span, method=args.solver).squeeze(1)
             y_hat_seq = denormalize_fn(y_hat_seq_norm, scalers['y_mean'], scalers['y_std'])
 
@@ -134,31 +121,34 @@ def run_simulation_loop(model, controls_n, states_n, states_denorm, args, scaler
             if window_count % 500 == 0:
                 print(f"      Processed {window_count} windows...")
 
-    if len(all_y_pred) == 0:
-        return None, None
+    if len(all_y_pred) == 0: return None, None
 
     y_pred_full = torch.cat(all_y_pred, dim=0)
     controls_full = torch.cat(all_controls, dim=0)
-    
     return y_pred_full, controls_full
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, default=DEFAULT_DATA, help="Path to data CSV")
-    parser.add_argument("--out", type=str, default=DEFAULT_OUTDIR, help="Output directory")
-    parser.add_argument("--H", type=int, default=DEFAULT_H, help="Prediction horizon")
-    parser.add_argument("--stride", type=int, default=1, help="Control horizon / step size")
-    parser.add_argument("--latent_dim", type=int, default=DEFAULT_LATENT, help="Latent dimension")
-    parser.add_argument("--start_idx", type=int, default=0, help="Start index")
-    parser.add_argument("--end_idx", type=int, default=-1, help="End index")
-    parser.add_argument("--hide_real", dest="show_real", action="store_false", default=True, help="Hide real data")
-    parser.add_argument("--solver", type=str, default="rk4", help="ODE solver method")
-    parser.add_argument("--dpi", type=int, default=140, help="Plot DPI")
-    parser.add_argument("--controller", type=str, default=None, help="Controller strategy")
-    parser.add_argument("--setpoint", type=float, default=None, help="Target temperature")
-    parser.add_argument("--loop_type", type=str, default="closed", choices=["open", "closed"], help="Loop type")
-    parser.add_argument("--ignore_weather", action="store_true", help="Block Solar/Outdoor data")
+    parser.add_argument("--data", type=str, default=DEFAULT_DATA)
+    parser.add_argument("--out", type=str, default=DEFAULT_OUTDIR)
+    parser.add_argument("--H", type=int, default=DEFAULT_H)
+    
+    # DEFAULTS
+    parser.add_argument("--stride", type=int, default=1)
+    parser.add_argument("--latent_dim", type=int, default=32)
+    parser.add_argument("--hide_real", dest="show_real", action="store_false", default=True)
+
+    parser.add_argument("--start_idx", type=int, default=0)
+    parser.add_argument("--end_idx", type=int, default=-1)
+    parser.add_argument("--solver", type=str, default="rk4")
+    parser.add_argument("--dpi", type=int, default=140)
+    parser.add_argument("--controller", type=str, default=None)
+    parser.add_argument("--setpoint", type=float, default=None)
+    parser.add_argument("--loop_type", type=str, default="closed", choices=["open", "closed"])
+    parser.add_argument("--ignore_weather", action="store_true")
+    parser.add_argument("--force_ac", action="store_true")
+
     args = parser.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -171,26 +161,21 @@ def main():
     CONTROL_FEATURES = list(config.get("observations", [])) + list(config.get("disturbances", [])) + list(config.get("outdoor", []))
     ROOMS_TEMP = list(config.get("rooms_temp", []))
 
-    # --- UPDATED MAPPING (Includes AHU) ---
     controller_map = []
     for i, room_col in enumerate(ROOMS_TEMP):
         room_prefix = room_col.split(":")[0]
-        # Map supports 3 types of actuators now
         room_indices = {'room_idx': i, 'rad_idx': None, 'damp_idx': None, 'ahu_idx': None}
-        
         for j, control_col in enumerate(CONTROL_FEATURES):
             if room_prefix in control_col:
                 if "Radiator" in control_col: room_indices['rad_idx'] = j
                 elif "Damper" in control_col: room_indices['damp_idx'] = j
                 elif "AHU" in control_col: room_indices['ahu_idx'] = j
-        
         if any(idx is not None for idx in [room_indices['rad_idx'], room_indices['damp_idx'], room_indices['ahu_idx']]):
             controller_map.append(room_indices)
 
     if args.controller:
         print(f"[INFO] Controller Map loaded for {len(controller_map)} rooms.")
 
-    # Load modules
     td_path = os.path.join(base_dir, "torchdiffeq_model.py")
     module_ns = runpy.run_path(td_path)
     read_csv_as_dicts = module_ns["read_csv_as_dicts"]
@@ -199,7 +184,6 @@ def main():
     denormalize = module_ns["denormalize"]
     NeuralODEModel = module_ns["NeuralODEModel"]
 
-    # Load Data
     scalers = torch.load(os.path.join(args.out, "scalers.pt"), map_location=device)
     ckpt = torch.load(os.path.join(args.out, "best_model.pt"), map_location=device)
     
@@ -236,9 +220,16 @@ def main():
     )
 
     if y_pred_base is None or y_pred_ctrl is None:
-        print("[ERR] Simulation produced no data. Check indices.")
+        print("[ERR] Simulation produced no data.")
         return
 
+    
+    burn_in = 50
+    if len(y_pred_ctrl) > burn_in:
+        print(f"[INFO] Removing first {burn_in} steps (Burn-in period)...")
+        y_pred_base = y_pred_base[burn_in:]
+        y_pred_ctrl = y_pred_ctrl[burn_in:]
+    
     print(f"\n[INFO] Plotting comparisons...")
     plot_simulation(
         y_true=y_pred_base, 
@@ -247,12 +238,9 @@ def main():
         room_names=ROOMS_TEMP, 
         show_real=True, 
         dpi=args.dpi, 
-        solver=args.solver, 
-        controls=controls_ctrl, 
-        controller_map=controller_map
+        solver=args.solver
     )
 
-    # Metrics
     metrics = {}
     for i, room in enumerate(ROOMS_TEMP):
         diff = y_pred_ctrl[:, i] - y_pred_base[:, i]
@@ -264,63 +252,45 @@ def main():
     print("[INFO] Done.")
 
 
-def plot_simulation(y_true, y_pred, outdir, room_names, show_real, dpi, solver, controls=None, controller_map=None):
+def plot_simulation(y_true, y_pred, outdir, room_names, show_real, dpi, solver):
+    """
+    Simplified Plotting: Only Blue (Baseline) and Red (Predicted).
+    Style: Solid thin red line for cleaner look.
+    """
     os.makedirs(outdir, exist_ok=True)
     total_steps, d_y = y_true.shape
     steps = np.arange(total_steps)
 
     fig = plt.figure(figsize=(14, 10), dpi=dpi)
-    
-    valve_indices = {}
-    if controls is not None and controller_map is not None:
-        for item in controller_map:
-            if item['rad_idx'] is not None:
-                valve_indices[item['room_idx']] = item['rad_idx']
 
     for i in range(d_y):
         ax = plt.subplot(2, 3, i + 1)
         
+        # Y-Axis Ticks
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
+        
+        # 1. Baseline (Blue) - Keep slightly transparent to focus on Red
         if show_real:
             ax.plot(steps, y_true[:, i].cpu().numpy(), label="Baseline (Uncontrolled)", color="tab:blue", linewidth=1.5, alpha=0.6)
         
-        y_pred_np = y_pred[:, i].cpu().numpy()
-        
-        if controls is not None and i in valve_indices:
-            valve_idx = valve_indices[i]
-            valve_signal = controls[:, valve_idx].cpu().numpy()
-            threshold = (np.max(valve_signal) + np.min(valve_signal)) / 2
-            
-            on_mask = valve_signal > threshold
-            off_mask = valve_signal <= threshold
-            
-            y_heating = y_pred_np.copy()
-            y_cooling = y_pred_np.copy()
-            y_heating[~on_mask] = np.nan
-            y_cooling[~off_mask] = np.nan
-            
-            ax.plot(steps, y_pred_np, color='tab:red', linestyle='--', linewidth=1.0, alpha=0.3, label="Predicted")
-            ax.plot(steps, y_cooling, color='firebrick', linestyle='-', linewidth=2.0, label="Mode: COOLING")
-            ax.plot(steps, y_heating, color='limegreen', linestyle='-', linewidth=2.0, label="Mode: HEATING")
-            
-        else:
-            ax.plot(steps, y_pred_np, label="Predicted", color="tab:red", linestyle="--", linewidth=2)
+        # 2. Predicted (Controlled) - NOW SOLID AND THIN
+        ax.plot(steps, y_pred[:, i].cpu().numpy(), label="Predicted (Controlled)", color="tab:red", linestyle="-", linewidth=1.0)
 
         ax.set_title(room_names[i], fontsize=10)
         if i >= 3: ax.set_xlabel("Time step")
         if i % 3 == 0: ax.set_ylabel("Temperature (°C)")
+        
         ax.grid(True, alpha=0.3)
-        if i == 0:
-            ax.legend(fontsize=8, loc='upper left')
+        
+        if i == 0: ax.legend(fontsize=8, loc='upper left')
 
     title_suffix = " (Baseline vs Controlled)"
     plt.suptitle(f"Simulation Trajectory{title_suffix}", fontsize=12)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    
     fname = os.path.join(outdir, "simulation_trajectory.png")
     plt.savefig(fname)
     plt.close(fig)
     print(f"[INFO] Saved plot to {fname}")
-
 
 if __name__ == "__main__":
     main()
