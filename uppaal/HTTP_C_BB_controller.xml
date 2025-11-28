@@ -2,7 +2,7 @@
 <!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
 <nta>
 	<declaration>/* Load the shared library (absolute path recommended) */
-import "&lt;abs_path_to_shared_object&gt;/http_to_uppaal/libuppaal_nn.so" {
+import "&lt;/home/beltranaceves/software/group_project/uppaal/http_to_uppaal/libuppaal_nn.so" {
 
 
 /* Declare the external function (must match the C signature exactly).
