@@ -14,10 +14,10 @@ dataset:
 
 
 model:
-  patience: 3
+  patience: 10
   warmup: 2
-  epochs: 20
-  latent_space_dimensions: 16
+  epochs: 50
+  latent_space_dimensions: 32
 
 outdoor: [
     "Outdoor:Solar__direct_radiation__east_façade",
