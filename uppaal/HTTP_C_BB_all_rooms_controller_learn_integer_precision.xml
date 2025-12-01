@@ -2,7 +2,7 @@
 <!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
 <nta>
 	<declaration>/* Load the shared library (absolute path recommended) */
-import "/home/beltranaceves/software/group_project/uppaal/http_to_uppaal/libuppaal_nn.so" {
+import "/home/toita86/Documents/group_project/uppaal/http_to_uppaal/libuppaal_nn.so" {
 
 /* Declare the external function (must match the C signature exactly).
    This wrapper expects: 6 y0 values followed by 36 control doubles (flattened).
@@ -22,6 +22,11 @@ int32_t uppaal_nn_get_pred_int(int32_t room_id);
 double sharing_array(double&amp; y0[6], int32_t n_y0, double&amp; cy[36], int32_t n_cy);
 
 };
+
+clock time;
+clock global_time;
+
+int i_counter = 0;
 
 const int32_t Scale = 10000;
 
@@ -105,6 +110,7 @@ int32_t compute_error(int32_t current_temp, int32_t low_threshold, int32_t high_
 		</location>
 		<location id="id6" x="-1786" y="-1330">
 			<name x="-1759" y="-1343">RemoteUpdate</name>
+			<label kind="invariant" x="-1742" y="-1317">time &lt;= 5</label>
 		</location>
 		<location id="id7" x="-3325" y="-1330">
 			<urgent/>
@@ -149,11 +155,13 @@ int32_t compute_error(int32_t current_temp, int32_t low_threshold, int32_t high_
 		<transition id="id14">
 			<source ref="id7"/>
 			<target ref="id0"/>
+			<label kind="assignment" x="-3417" y="-1275">i_counter = 0</label>
 		</transition>
-		<transition id="id15">
+		<transition id="id15" controllable="false">
 			<source ref="id6"/>
 			<target ref="id0"/>
-			<label kind="assignment" x="-3238" y="-1139">succ = uppaal_nn_update_integer(
+			<label kind="guard" x="-3247" y="-629">time &gt;= 5</label>
+			<label kind="assignment" x="-3247" y="-1198">succ = uppaal_nn_update_integer(
 	t_a,t_b,t_c,t_d,t_e,t_f,
 	rad_sign_a,  000000,  actuator_room_a,  
 	rad_sign_b,  000000,  actuator_room_b,  
@@ -180,7 +188,10 @@ error_d = compute_error(t_d, low, high),
 error_e = compute_error(t_e, low, high),
 error_f = compute_error(t_f, low, high),
 error_acum = (error_a + error_b + error_c + error_d + error_e + error_f),
-error_avg = (error_a + error_b + error_c + error_d + error_e + error_f) / 6</label>
+error_avg = (error_a + error_b + error_c + error_d + error_e + error_f) / 6,
+
+i_counter = 1 + i_counter,
+time = 0</label>
 			<nail x="-1785" y="-1223"/>
 			<nail x="-3247" y="-1223"/>
 		</transition>
@@ -251,14 +262,14 @@ rad_sign_c = rad_sign_low</label>
 		<transition id="id26">
 			<source ref="id1"/>
 			<target ref="id2"/>
-			<label kind="assignment" x="-3009" y="-1453">actuator_room_b = actuator_room_high,
+			<label kind="assignment" x="-3009" y="-1436">actuator_room_b = actuator_room_high,
 rad_sign_b = rad_sign_low</label>
 			<nail x="-2907" y="-1453"/>
 		</transition>
 		<transition id="id27">
 			<source ref="id0"/>
 			<target ref="id1"/>
-			<label kind="assignment" x="-3298" y="-1402">actuator_room_a = actuator_room_high,
+			<label kind="assignment" x="-3349" y="-1411">actuator_room_a = actuator_room_high,
 rad_sign_a = rad_sign_low</label>
 			<nail x="-3137" y="-1462"/>
 		</transition>
@@ -295,7 +306,6 @@ void read() {
 	<system>// Place template instantiations here.
 Process = BB();
 // List one or more processes to be composed into a system.
-clock time;
 system BB;
 </system>
 	<queries>
@@ -304,11 +314,13 @@ system BB;
 			<comment/>
 		</query>
 		<query>
-			<formula>strategy opt = minE (error_a) [&lt;=100] : &lt;&gt; time &gt;= 1000  // Minimize error of room</formula>
+			<formula>strategy opt = minE (error_a) [&lt;=100] : &lt;&gt; time &gt;= 90  // Minimize error of room</formula>
 			<comment/>
+			<result outcome="failure" type="quality" timestamp="2025-12-01 11:30:19 +0100">
+			</result>
 		</query>
 		<query>
-			<formula>strategy opt = control: A[] (error_a &lt;= 0.5) // can keep error bounded, cannot use doubles</formula>
+			<formula>strategy opt = control: exists &lt;&gt; (error_a &lt;= 50000) // can keep error bounded, cannot use doubles</formula>
 			<comment/>
 		</query>
 		<query>
