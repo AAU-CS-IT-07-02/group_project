@@ -4,79 +4,77 @@
 	<declaration>/* Load the shared library (absolute path recommended) */
 import "/home/beltranaceves/software/group_project/uppaal/http_to_uppaal/libuppaal_nn.so" {
 
-
 /* Declare the external function (must match the C signature exactly).
    This wrapper expects: 6 y0 values followed by 36 control doubles (flattened).
 */
-int uppaal_nn_update(
-    double y0_0,double y0_1,double y0_2,double y0_3,double y0_4,double y0_5,
-    double c0,double c1,double c2,double c3,double c4,double c5,
-    double c6,double c7,double c8,double c9,double c10,double c11,
-    double c12,double c13,double c14,double c15,double c16,double c17,
-    double c18,double c19,double c20,double c21,double c22,double c23,
-    double c24,double c25,double c26,double c27,double c28,double c29,
-    double c30,double c31,double c32,double c33,double c34,double c35
+int32_t uppaal_nn_update_integer(
+    int32_t y0_0, int32_t y0_1, int32_t y0_2, int32_t y0_3, int32_t y0_4, int32_t y0_5,
+    int32_t c0, int32_t c1, int32_t c2, int32_t c3, int32_t c4, int32_t c5,
+    int32_t c6, int32_t c7, int32_t c8, int32_t c9, int32_t c10, int32_t c11,
+    int32_t c12, int32_t c13, int32_t c14, int32_t c15, int32_t c16, int32_t c17,
+    int32_t c18, int32_t c19, int32_t c20, int32_t c21, int32_t c22, int32_t c23,
+    int32_t c24, int32_t c25, int32_t c26, int32_t c27, int32_t c28, int32_t c29,
+    int32_t c30, int32_t c31, int32_t c32, int32_t c33, int32_t c34, int32_t c35, int32_t scale
 );
 
-double uppaal_nn_get_pred(int room_id);
+int32_t uppaal_nn_get_pred_int(int32_t room_id);
 
-double sharing_array(double&amp; y0[6], int n_y0, double&amp; cy[36], int n_cy);
+double sharing_array(double&amp; y0[6], int32_t n_y0, double&amp; cy[36], int32_t n_cy);
 
 };
 
-int succ = 0;
-const double low = 21.5;
-const double high = 22.0;
+const int32_t Scale = 10000;
 
-const double rad_sign_low = 0;
-const double rad_sign_high = 50;
-const double actuator_room_low = 1;
-const double actuator_room_high = 14;
+int32_t succ = 0;
+const int32_t low = 200000;
+const int32_t high = 220000;
 
-double t_a = 23.04;
-double t_b = 21.61;
-double t_c = 21.61;
+const int32_t rad_sign_low = 000000;
+const int32_t rad_sign_high = 500000;
+const int32_t actuator_room_low = 100000;
+const int32_t actuator_room_high = 140000;
 
-double t_d = 20.87;
-double t_e = 20.89;
-double t_f = 20.82;
+int32_t t_a = 230400;
+int32_t t_b = 216100;
+int32_t t_c = 216100;
+int32_t t_d = 208700;
+int32_t t_e = 208900;
+int32_t t_f = 208200;
 
-double error_a;
-double error_b;
-double error_c;
-double error_d;
-double error_e;
-double error_f;
-double error_avg;
+int32_t error_a;
+int32_t error_b;
+int32_t error_c;
+int32_t error_d;
+int32_t error_e;
+int32_t error_f;
+int32_t error_avg;
+int32_t error_acum;
 
-double actuator_rooms = 1; /*values min 1 max is 14*/
-double rad_sign = 60;
+int32_t actuator_room_a = 1; /*values min 1 max is 14*/
+int32_t rad_sign_a = 60;
 
-double actuator_room_a = 1; /*values min 1 max is 14*/
-double rad_sign_a = 60;
+int32_t actuator_room_b = 1; /*values min 1 max is 14*/
+int32_t rad_sign_b = 60;
 
-double actuator_room_b = 1; /*values min 1 max is 14*/
-double rad_sign_b = 60;
+int32_t actuator_room_c = 1; /*values min 1 max is 14*/
+int32_t rad_sign_c = 60;
 
-double actuator_room_c = 1; /*values min 1 max is 14*/
-double rad_sign_c = 60;
+int32_t actuator_room_d = 1; /*values min 1 max is 14*/
+int32_t rad_sign_d = 60;
 
-double actuator_room_d = 1; /*values min 1 max is 14*/
-double rad_sign_d = 60;
+int32_t actuator_room_e = 1; /*values min 1 max is 14*/
+int32_t rad_sign_e = 60;
 
-double actuator_room_e = 1; /*values min 1 max is 14*/
-double rad_sign_e = 60;
+int32_t actuator_room_f = 1; /*values min 1 max is 14*/
+int32_t rad_sign_f = 60;
 
-double actuator_room_f = 1; /*values min 1 max is 14*/
-double rad_sign_f = 60;
-
-double compute_error(double current_temp, double low_threshold, double high_threshold) {
+int32_t compute_error(int32_t current_temp, int32_t low_threshold, int32_t high_threshold) {
     if (current_temp &gt; high_threshold) {
         return current_temp - high_threshold;
     } else if (current_temp &lt; low_threshold) {
         return low_threshold - current_temp;
     } else {
-        return 0.0;
+        return 0;
     }
 }</declaration>
 	<template>
@@ -155,26 +153,25 @@ double compute_error(double current_temp, double low_threshold, double high_thre
 		<transition id="id15">
 			<source ref="id6"/>
 			<target ref="id0"/>
-			<label kind="assignment" x="-3238" y="-1139">succ = uppaal_nn_update(
+			<label kind="assignment" x="-3238" y="-1139">succ = uppaal_nn_update_integer(
 	t_a,t_b,t_c,t_d,t_e,t_f,
-	rad_sign_a,  0.0000,  actuator_room_a,  
-	rad_sign_b,  0.0000,  actuator_room_b,  
-	rad_sign_c,  0.0000,  actuator_room_c,  
-	rad_sign_d,  0.0000,  actuator_room_d,  
-	rad_sign_e,  0.0000,  actuator_room_e,  
-	rad_sign_e,  0.0000,  actuator_room_f, 
-	58.3575, 22.6200,  
-	1.0069,  0.0000,  0.0000,  0.0000,  0.0000,  
-	0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  
-	0.0000,  0.0000,  0.0000,  3.1708,  2.8087,  5.5348
+	rad_sign_a,  000000,  actuator_room_a,  
+	rad_sign_b,  000000,  actuator_room_b,  
+	rad_sign_c,  000000,  actuator_room_c,  
+	rad_sign_d,  000000,  actuator_room_d,  
+	rad_sign_e,  000000,  actuator_room_e,  
+	rad_sign_e,  000000,  actuator_room_f, 
+	583575, 226200,  
+	100690,  000000,  000000,  000000,  000000,  
+	000000,  000000,  000000,  000000,  000000,  
+	000000,  000000,  000000,  317080,  280870,  553480, Scale
 ),
-t_a = uppaal_nn_get_pred(0),
-t_b = uppaal_nn_get_pred(1),
-t_c = uppaal_nn_get_pred(2),
-
-t_d = uppaal_nn_get_pred(3),
-t_e = uppaal_nn_get_pred(4),
-t_f = uppaal_nn_get_pred(5),
+t_a = uppaal_nn_get_pred_int(0),
+t_b = uppaal_nn_get_pred_int(1),
+t_c = uppaal_nn_get_pred_int(2),
+t_d = uppaal_nn_get_pred_int(3),
+t_e = uppaal_nn_get_pred_int(4),
+t_f = uppaal_nn_get_pred_int(5),
 
 error_a = compute_error(t_a, low, high),
 error_b = compute_error(t_b, low, high),
@@ -182,6 +179,7 @@ error_c = compute_error(t_c, low, high),
 error_d = compute_error(t_d, low, high),
 error_e = compute_error(t_e, low, high),
 error_f = compute_error(t_f, low, high),
+error_acum = (error_a + error_b + error_c + error_d + error_e + error_f),
 error_avg = (error_a + error_b + error_c + error_d + error_e + error_f) / 6</label>
 			<nail x="-1785" y="-1223"/>
 			<nail x="-3247" y="-1223"/>
