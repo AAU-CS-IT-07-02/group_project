@@ -28,6 +28,7 @@ extra_javascript:
 
 nav:
   - Home: index.md 
+  - Project Report Summary: project_report_summary.md
   - Engineering Document: literature_review/PROJECT_DOCUMENT.md
   - Database Extraction: db_extraction.md 
   - Database Augmentation: db_augmentation.md 
