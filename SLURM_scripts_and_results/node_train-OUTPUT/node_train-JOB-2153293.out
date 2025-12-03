@@ -1,0 +1,320 @@
+[JOB] Scratch dir: /scratch/cj32if@student.aau.dk/2153293
+[JOB] No venv found in repo; creating a new venv...
+Requirement already satisfied: pip in ./venv/lib/python3.10/site-packages (22.0.2)
+Collecting pip
+  Using cached pip-25.3-py3-none-any.whl (1.8 MB)
+Installing collected packages: pip
+  Attempting uninstall: pip
+    Found existing installation: pip 22.0.2
+    Uninstalling pip-22.0.2:
+      Successfully uninstalled pip-22.0.2
+Successfully installed pip-25.3
+Collecting pysindy==2.0.0 (from -r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 1))
+  Using cached pysindy-2.0.0-py3-none-any.whl.metadata (23 kB)
+Collecting matplotlib (from -r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 2))
+  Using cached matplotlib-3.10.7-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (11 kB)
+Collecting scipy (from -r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 3))
+  Using cached scipy-1.15.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (61 kB)
+Collecting pandas (from -r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 4))
+  Using cached pandas-2.3.3-cp310-cp310-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (91 kB)
+Collecting torch>=2.2 (from -r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached torch-2.9.1-cp310-cp310-manylinux_2_28_x86_64.whl.metadata (30 kB)
+Collecting pytorch-lightning>=2.3 (from -r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached pytorch_lightning-2.5.6-py3-none-any.whl.metadata (20 kB)
+Collecting numpy (from -r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 7))
+  Using cached numpy-2.2.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (62 kB)
+Collecting pyyaml (from -r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 8))
+  Using cached pyyaml-6.0.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+Collecting scikit-learn!=1.5.0,!=1.6.0,!=1.7.1,>=1.1 (from pysindy==2.0.0->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 1))
+  Using cached scikit_learn-1.7.2-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (11 kB)
+Collecting derivative>=0.6.2 (from pysindy==2.0.0->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 1))
+  Using cached derivative-0.6.3-py3-none-any.whl.metadata (6.6 kB)
+Collecting typing_extensions (from pysindy==2.0.0->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 1))
+  Using cached typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting contourpy>=1.0.1 (from matplotlib->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 2))
+  Using cached contourpy-1.3.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.5 kB)
+Collecting cycler>=0.10 (from matplotlib->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 2))
+  Using cached cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+Collecting fonttools>=4.22.0 (from matplotlib->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 2))
+  Using cached fonttools-4.60.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (112 kB)
+Collecting kiwisolver>=1.3.1 (from matplotlib->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 2))
+  Using cached kiwisolver-1.4.9-cp310-cp310-manylinux_2_12_x86_64.manylinux2010_x86_64.whl.metadata (6.3 kB)
+Collecting packaging>=20.0 (from matplotlib->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 2))
+  Using cached packaging-25.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting pillow>=8 (from matplotlib->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 2))
+  Using cached pillow-12.0.0-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (8.8 kB)
+Collecting pyparsing>=3 (from matplotlib->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 2))
+  Using cached pyparsing-3.2.5-py3-none-any.whl.metadata (5.0 kB)
+Collecting python-dateutil>=2.7 (from matplotlib->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 2))
+  Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+Collecting pytz>=2020.1 (from pandas->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 4))
+  Using cached pytz-2025.2-py2.py3-none-any.whl.metadata (22 kB)
+Collecting tzdata>=2022.7 (from pandas->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 4))
+  Using cached tzdata-2025.2-py2.py3-none-any.whl.metadata (1.4 kB)
+Collecting filelock (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached filelock-3.20.0-py3-none-any.whl.metadata (2.1 kB)
+Collecting sympy>=1.13.3 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached sympy-1.14.0-py3-none-any.whl.metadata (12 kB)
+Collecting networkx>=2.5.1 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached networkx-3.4.2-py3-none-any.whl.metadata (6.3 kB)
+Collecting jinja2 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+Collecting fsspec>=0.8.5 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached fsspec-2025.10.0-py3-none-any.whl.metadata (10 kB)
+Collecting nvidia-cuda-nvrtc-cu12==12.8.93 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cuda-runtime-cu12==12.8.90 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cuda-cupti-cu12==12.8.90 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cudnn-cu12==9.10.2.21 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_x86_64.whl.metadata (1.8 kB)
+Collecting nvidia-cublas-cu12==12.8.4.1 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cufft-cu12==11.3.3.83 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-curand-cu12==10.3.9.90 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cusolver-cu12==11.7.3.90 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_x86_64.whl.metadata (1.8 kB)
+Collecting nvidia-cusparse-cu12==12.5.8.93 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.8 kB)
+Collecting nvidia-cusparselt-cu12==0.7.1 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_x86_64.whl.metadata (7.0 kB)
+Collecting nvidia-nccl-cu12==2.27.5 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_nccl_cu12-2.27.5-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.0 kB)
+Collecting nvidia-nvshmem-cu12==3.3.20 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_nvshmem_cu12-3.3.20-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.1 kB)
+Collecting nvidia-nvtx-cu12==12.8.90 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.8 kB)
+Collecting nvidia-nvjitlink-cu12==12.8.93 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl.metadata (1.7 kB)
+Collecting nvidia-cufile-cu12==1.13.1.3 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (1.7 kB)
+Collecting triton==3.5.1 (from torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached triton-3.5.1-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (1.7 kB)
+Collecting tqdm>=4.57.0 (from pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached tqdm-4.67.1-py3-none-any.whl.metadata (57 kB)
+Collecting torchmetrics>0.7.0 (from pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached torchmetrics-1.8.2-py3-none-any.whl.metadata (22 kB)
+Collecting lightning-utilities>=0.10.0 (from pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached lightning_utilities-0.15.2-py3-none-any.whl.metadata (5.7 kB)
+Collecting importlib-metadata>=7.1.0 (from derivative>=0.6.2->pysindy==2.0.0->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 1))
+  Using cached importlib_metadata-8.7.0-py3-none-any.whl.metadata (4.8 kB)
+Collecting joblib>=1.2.0 (from scikit-learn!=1.5.0,!=1.6.0,!=1.7.1,>=1.1->pysindy==2.0.0->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 1))
+  Using cached joblib-1.5.2-py3-none-any.whl.metadata (5.6 kB)
+Collecting threadpoolctl>=3.1.0 (from scikit-learn!=1.5.0,!=1.6.0,!=1.7.1,>=1.1->pysindy==2.0.0->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 1))
+  Using cached threadpoolctl-3.6.0-py3-none-any.whl.metadata (13 kB)
+Collecting aiohttp!=4.0.0a0,!=4.0.0a1 (from fsspec[http]>=2022.5.0->pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached aiohttp-3.13.2-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.1 kB)
+Collecting aiohappyeyeballs>=2.5.0 (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached aiohappyeyeballs-2.6.1-py3-none-any.whl.metadata (5.9 kB)
+Collecting aiosignal>=1.4.0 (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
+Collecting async-timeout<6.0,>=4.0 (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached async_timeout-5.0.1-py3-none-any.whl.metadata (5.1 kB)
+Collecting attrs>=17.3.0 (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached attrs-25.4.0-py3-none-any.whl.metadata (10 kB)
+Collecting frozenlist>=1.1.1 (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached frozenlist-1.8.0-cp310-cp310-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (20 kB)
+Collecting multidict<7.0,>=4.5 (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached multidict-6.7.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (5.3 kB)
+Collecting propcache>=0.2.0 (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached propcache-0.4.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (13 kB)
+Collecting yarl<2.0,>=1.17.0 (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached yarl-1.22.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (75 kB)
+Collecting idna>=2.0 (from yarl<2.0,>=1.17.0->aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6))
+  Using cached idna-3.11-py3-none-any.whl.metadata (8.4 kB)
+Collecting zipp>=3.20 (from importlib-metadata>=7.1.0->derivative>=0.6.2->pysindy==2.0.0->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 1))
+  Using cached zipp-3.23.0-py3-none-any.whl.metadata (3.6 kB)
+Requirement already satisfied: setuptools in ./venv/lib/python3.10/site-packages (from lightning-utilities>=0.10.0->pytorch-lightning>=2.3->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 6)) (59.6.0)
+Collecting six>=1.5 (from python-dateutil>=2.7->matplotlib->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 2))
+  Using cached six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+Collecting mpmath<1.4,>=1.1.0 (from sympy>=1.13.3->torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached mpmath-1.3.0-py3-none-any.whl.metadata (8.6 kB)
+Collecting MarkupSafe>=2.0 (from jinja2->torch>=2.2->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/requirements.txt (line 5))
+  Using cached markupsafe-3.0.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.7 kB)
+Using cached pysindy-2.0.0-py3-none-any.whl (127 kB)
+Using cached matplotlib-3.10.7-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (8.7 MB)
+Using cached scipy-1.15.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (37.7 MB)
+Using cached numpy-2.2.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (16.8 MB)
+Using cached pandas-2.3.3-cp310-cp310-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (12.8 MB)
+Using cached torch-2.9.1-cp310-cp310-manylinux_2_28_x86_64.whl (899.8 MB)
+Using cached nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_x86_64.whl (594.3 MB)
+Using cached nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (10.2 MB)
+Using cached nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl (88.0 MB)
+Using cached nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (954 kB)
+Using cached nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_x86_64.whl (706.8 MB)
+Using cached nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (193.1 MB)
+Using cached nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.2 MB)
+Using cached nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_x86_64.whl (63.6 MB)
+Using cached nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_x86_64.whl (267.5 MB)
+Using cached nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (288.2 MB)
+Using cached nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_x86_64.whl (287.2 MB)
+Using cached nvidia_nccl_cu12-2.27.5-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (322.3 MB)
+Using cached nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl (39.3 MB)
+Using cached nvidia_nvshmem_cu12-3.3.20-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (124.7 MB)
+Using cached nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (89 kB)
+Using cached triton-3.5.1-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (170.3 MB)
+Using cached pytorch_lightning-2.5.6-py3-none-any.whl (831 kB)
+Using cached pyyaml-6.0.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (770 kB)
+Using cached contourpy-1.3.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (325 kB)
+Using cached cycler-0.12.1-py3-none-any.whl (8.3 kB)
+Using cached derivative-0.6.3-py3-none-any.whl (14 kB)
+Using cached scikit_learn-1.7.2-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (9.7 MB)
+Using cached fonttools-4.60.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (4.8 MB)
+Using cached fsspec-2025.10.0-py3-none-any.whl (200 kB)
+Using cached aiohttp-3.13.2-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (1.7 MB)
+Using cached async_timeout-5.0.1-py3-none-any.whl (6.2 kB)
+Using cached multidict-6.7.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (241 kB)
+Using cached yarl-1.22.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (346 kB)
+Using cached aiohappyeyeballs-2.6.1-py3-none-any.whl (15 kB)
+Using cached aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
+Using cached attrs-25.4.0-py3-none-any.whl (67 kB)
+Using cached frozenlist-1.8.0-cp310-cp310-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (219 kB)
+Using cached idna-3.11-py3-none-any.whl (71 kB)
+Using cached importlib_metadata-8.7.0-py3-none-any.whl (27 kB)
+Using cached joblib-1.5.2-py3-none-any.whl (308 kB)
+Using cached kiwisolver-1.4.9-cp310-cp310-manylinux_2_12_x86_64.manylinux2010_x86_64.whl (1.6 MB)
+Using cached lightning_utilities-0.15.2-py3-none-any.whl (29 kB)
+Using cached networkx-3.4.2-py3-none-any.whl (1.7 MB)
+Using cached packaging-25.0-py3-none-any.whl (66 kB)
+Using cached pillow-12.0.0-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (7.0 MB)
+Using cached propcache-0.4.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (196 kB)
+Using cached pyparsing-3.2.5-py3-none-any.whl (113 kB)
+Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+Using cached pytz-2025.2-py2.py3-none-any.whl (509 kB)
+Using cached six-1.17.0-py2.py3-none-any.whl (11 kB)
+Using cached sympy-1.14.0-py3-none-any.whl (6.3 MB)
+Using cached mpmath-1.3.0-py3-none-any.whl (536 kB)
+Using cached threadpoolctl-3.6.0-py3-none-any.whl (18 kB)
+Using cached torchmetrics-1.8.2-py3-none-any.whl (983 kB)
+Using cached tqdm-4.67.1-py3-none-any.whl (78 kB)
+Using cached typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+Using cached tzdata-2025.2-py2.py3-none-any.whl (347 kB)
+Using cached zipp-3.23.0-py3-none-any.whl (10 kB)
+Using cached filelock-3.20.0-py3-none-any.whl (16 kB)
+Using cached jinja2-3.1.6-py3-none-any.whl (134 kB)
+Using cached markupsafe-3.0.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (20 kB)
+Installing collected packages: pytz, nvidia-cusparselt-cu12, mpmath, zipp, tzdata, typing_extensions, triton, tqdm, threadpoolctl, sympy, six, pyyaml, pyparsing, propcache, pillow, packaging, nvidia-nvtx-cu12, nvidia-nvshmem-cu12, nvidia-nvjitlink-cu12, nvidia-nccl-cu12, nvidia-curand-cu12, nvidia-cufile-cu12, nvidia-cuda-runtime-cu12, nvidia-cuda-nvrtc-cu12, nvidia-cuda-cupti-cu12, nvidia-cublas-cu12, numpy, networkx, MarkupSafe, kiwisolver, joblib, idna, fsspec, frozenlist, fonttools, filelock, cycler, attrs, async-timeout, aiohappyeyeballs, scipy, python-dateutil, nvidia-cusparse-cu12, nvidia-cufft-cu12, nvidia-cudnn-cu12, multidict, lightning-utilities, jinja2, importlib-metadata, contourpy, aiosignal, yarl, scikit-learn, pandas, nvidia-cusolver-cu12, matplotlib, torch, derivative, aiohttp, torchmetrics, pysindy, pytorch-lightning
+
+Successfully installed MarkupSafe-3.0.3 aiohappyeyeballs-2.6.1 aiohttp-3.13.2 aiosignal-1.4.0 async-timeout-5.0.1 attrs-25.4.0 contourpy-1.3.2 cycler-0.12.1 derivative-0.6.3 filelock-3.20.0 fonttools-4.60.1 frozenlist-1.8.0 fsspec-2025.10.0 idna-3.11 importlib-metadata-8.7.0 jinja2-3.1.6 joblib-1.5.2 kiwisolver-1.4.9 lightning-utilities-0.15.2 matplotlib-3.10.7 mpmath-1.3.0 multidict-6.7.0 networkx-3.4.2 numpy-2.2.6 nvidia-cublas-cu12-12.8.4.1 nvidia-cuda-cupti-cu12-12.8.90 nvidia-cuda-nvrtc-cu12-12.8.93 nvidia-cuda-runtime-cu12-12.8.90 nvidia-cudnn-cu12-9.10.2.21 nvidia-cufft-cu12-11.3.3.83 nvidia-cufile-cu12-1.13.1.3 nvidia-curand-cu12-10.3.9.90 nvidia-cusolver-cu12-11.7.3.90 nvidia-cusparse-cu12-12.5.8.93 nvidia-cusparselt-cu12-0.7.1 nvidia-nccl-cu12-2.27.5 nvidia-nvjitlink-cu12-12.8.93 nvidia-nvshmem-cu12-3.3.20 nvidia-nvtx-cu12-12.8.90 packaging-25.0 pandas-2.3.3 pillow-12.0.0 propcache-0.4.1 pyparsing-3.2.5 pysindy-2.0.0 python-dateutil-2.9.0.post0 pytorch-lightning-2.5.6 pytz-2025.2 pyyaml-6.0.3 scikit-learn-1.7.2 scipy-1.15.3 six-1.17.0 sympy-1.14.0 threadpoolctl-3.6.0 torch-2.9.1 torchmetrics-1.8.2 tqdm-4.67.1 triton-3.5.1 typing_extensions-4.15.0 tzdata-2025.2 yarl-1.22.0 zipp-3.23.0
+Collecting torchdiffeq (from -r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1))
+  Downloading torchdiffeq-0.2.5-py3-none-any.whl.metadata (440 bytes)
+Requirement already satisfied: torch>=1.5.0 in ./venv/lib/python3.10/site-packages (from torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (2.9.1)
+Requirement already satisfied: scipy>=1.4.0 in ./venv/lib/python3.10/site-packages (from torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (1.15.3)
+Requirement already satisfied: numpy<2.5,>=1.23.5 in ./venv/lib/python3.10/site-packages (from scipy>=1.4.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (2.2.6)
+Requirement already satisfied: filelock in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (3.20.0)
+Requirement already satisfied: typing-extensions>=4.10.0 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (4.15.0)
+Requirement already satisfied: sympy>=1.13.3 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (1.14.0)
+Requirement already satisfied: networkx>=2.5.1 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (3.4.2)
+Requirement already satisfied: jinja2 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (3.1.6)
+Requirement already satisfied: fsspec>=0.8.5 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (2025.10.0)
+Requirement already satisfied: nvidia-cuda-nvrtc-cu12==12.8.93 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (12.8.93)
+Requirement already satisfied: nvidia-cuda-runtime-cu12==12.8.90 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (12.8.90)
+Requirement already satisfied: nvidia-cuda-cupti-cu12==12.8.90 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (12.8.90)
+Requirement already satisfied: nvidia-cudnn-cu12==9.10.2.21 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (9.10.2.21)
+Requirement already satisfied: nvidia-cublas-cu12==12.8.4.1 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (12.8.4.1)
+Requirement already satisfied: nvidia-cufft-cu12==11.3.3.83 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (11.3.3.83)
+Requirement already satisfied: nvidia-curand-cu12==10.3.9.90 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (10.3.9.90)
+Requirement already satisfied: nvidia-cusolver-cu12==11.7.3.90 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (11.7.3.90)
+Requirement already satisfied: nvidia-cusparse-cu12==12.5.8.93 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (12.5.8.93)
+Requirement already satisfied: nvidia-cusparselt-cu12==0.7.1 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (0.7.1)
+Requirement already satisfied: nvidia-nccl-cu12==2.27.5 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (2.27.5)
+Requirement already satisfied: nvidia-nvshmem-cu12==3.3.20 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (3.3.20)
+Requirement already satisfied: nvidia-nvtx-cu12==12.8.90 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (12.8.90)
+Requirement already satisfied: nvidia-nvjitlink-cu12==12.8.93 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (12.8.93)
+Requirement already satisfied: nvidia-cufile-cu12==1.13.1.3 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (1.13.1.3)
+Requirement already satisfied: triton==3.5.1 in ./venv/lib/python3.10/site-packages (from torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (3.5.1)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in ./venv/lib/python3.10/site-packages (from sympy>=1.13.3->torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (1.3.0)
+Requirement already satisfied: MarkupSafe>=2.0 in ./venv/lib/python3.10/site-packages (from jinja2->torch>=1.5.0->torchdiffeq->-r /nfs/home/student.aau.dk/cj32if/group_project/thermodynamics_modeling/pythorch_node/requirements.txt (line 1)) (3.0.3)
+Downloading torchdiffeq-0.2.5-py3-none-any.whl (32 kB)
+Installing collected packages: torchdiffeq
+Successfully installed torchdiffeq-0.2.5
+[JOB] Copying repository to scratch...
+/scratch/cj32if@student.aau.dk/2153293
+Database
+Database_augmentation_scripts
+README.md
+SLURM_scripts_and_results
+alternative_methods
+db_extraction
+do_MPC
+docs
+mkdocs.yml
+requirements.txt
+thermodynamics_modeling
+venv
+[JOB] Using OUTDIR=out
+[JOB] Generating dataset split...
+Train CSV saved as ./dataset_split/train_data.csv with 79777 rows.
+Test CSV saved as ./dataset_split/test_data.csv with 8916 rows.
+[JOB] Starting training...
+[INFO] Configured CPU threads = 2
+Using device: cpu
+Epoch 001 | lr=1.6667e-05 | train=0.459997 | val=0.443014 | 484.30s
+Epoch 002 | lr=3.3333e-05 | train=0.142499 | val=0.236435 | 483.92s
+Epoch 003 | lr=5.0000e-05 | train=0.087654 | val=0.169104 | 484.48s
+Epoch 004 | lr=6.6667e-05 | train=0.068629 | val=0.140736 | 484.30s
+Epoch 005 | lr=8.3333e-05 | train=0.055412 | val=0.113200 | 483.70s
+Epoch 006 | lr=1.0000e-04 | train=0.047004 | val=0.104308 | 484.49s
+Epoch 007 | lr=1.1667e-04 | train=0.043195 | val=0.091315 | 483.96s
+Epoch 008 | lr=1.3333e-04 | train=0.040040 | val=0.085907 | 484.49s
+Epoch 009 | lr=1.5000e-04 | train=0.036698 | val=0.080504 | 484.14s
+Epoch 010 | lr=1.6667e-04 | train=0.034900 | val=0.084214 | 483.55s
+Epoch 011 | lr=1.8333e-04 | train=0.033908 | val=0.083155 | 483.34s
+Epoch 012 | lr=2.0000e-04 | train=0.031717 | val=0.081210 | 483.96s
+Epoch 013 | lr=2.1667e-04 | train=0.031066 | val=0.081479 | 484.08s
+Epoch 014 | lr=2.3333e-04 | train=0.029088 | val=0.087417 | 483.62s
+Epoch 015 | lr=2.5000e-04 | train=0.028100 | val=0.082322 | 484.05s
+Epoch 016 | lr=2.6667e-04 | train=0.026735 | val=0.087332 | 483.62s
+Epoch 017 | lr=2.8333e-04 | train=0.026392 | val=0.085177 | 484.69s
+Epoch 018 | lr=3.0000e-04 | train=0.024719 | val=0.087654 | 484.02s
+Epoch 019 | lr=3.1667e-04 | train=0.023876 | val=0.096516 | 483.60s
+Epoch 020 | lr=3.3333e-04 | train=0.023898 | val=0.091473 | 484.64s
+Epoch 021 | lr=3.5000e-04 | train=0.023289 | val=0.095259 | 484.56s
+Epoch 022 | lr=3.6667e-04 | train=0.022304 | val=0.085214 | 484.61s
+Epoch 023 | lr=3.8333e-04 | train=0.021980 | val=0.095052 | 484.55s
+Epoch 024 | lr=4.0000e-04 | train=0.021082 | val=0.092980 | 484.53s
+Epoch 025 | lr=4.1667e-04 | train=0.021082 | val=0.096516 | 484.20s
+Epoch 026 | lr=4.3333e-04 | train=0.020164 | val=0.096633 | 484.13s
+Epoch 027 | lr=4.5000e-04 | train=0.019802 | val=0.090368 | 483.94s
+Epoch 028 | lr=4.6667e-04 | train=0.019521 | val=0.097997 | 483.41s
+Epoch 029 | lr=4.8333e-04 | train=0.018879 | val=0.098011 | 484.86s
+Epoch 030 | lr=5.0000e-04 | train=0.018614 | val=0.101122 | 484.45s
+Epoch 031 | lr=5.1667e-04 | train=0.018399 | val=0.102976 | 483.77s
+Epoch 032 | lr=5.3333e-04 | train=0.018140 | val=0.101245 | 484.24s
+Epoch 033 | lr=5.5000e-04 | train=0.017389 | val=0.105595 | 484.67s
+Epoch 034 | lr=5.6667e-04 | train=0.017373 | val=0.099637 | 484.80s
+Epoch 035 | lr=5.8333e-04 | train=0.017277 | val=0.100369 | 484.15s
+Epoch 036 | lr=6.0000e-04 | train=0.016748 | val=0.104722 | 485.38s
+Epoch 037 | lr=6.1667e-04 | train=0.016457 | val=0.114469 | 484.62s
+Epoch 038 | lr=6.3333e-04 | train=0.015971 | val=0.102148 | 484.40s
+Epoch 039 | lr=6.5000e-04 | train=0.015786 | val=0.099096 | 483.99s
+Epoch 040 | lr=6.6667e-04 | train=0.016129 | val=0.097443 | 484.13s
+Epoch 041 | lr=6.8333e-04 | train=0.015328 | val=0.101962 | 483.76s
+Epoch 042 | lr=7.0000e-04 | train=0.015270 | val=0.103039 | 484.47s
+Epoch 043 | lr=7.1667e-04 | train=0.014589 | val=0.090036 | 485.01s
+Epoch 044 | lr=7.3333e-04 | train=0.014448 | val=0.096294 | 484.54s
+Epoch 045 | lr=7.5000e-04 | train=0.014216 | val=0.099919 | 484.50s
+Epoch 046 | lr=7.6667e-04 | train=0.014418 | val=0.100729 | 484.35s
+Epoch 047 | lr=7.8333e-04 | train=0.013792 | val=0.103806 | 485.36s
+Epoch 048 | lr=8.0000e-04 | train=0.014038 | val=0.094742 | 484.29s
+Epoch 049 | lr=8.1667e-04 | train=0.013275 | val=0.101873 | 484.58s
+Epoch 050 | lr=8.3333e-04 | train=0.013824 | val=0.097419 | 484.97s
+Epoch 051 | lr=8.5000e-04 | train=0.012709 | val=0.095579 | 484.71s
+Epoch 052 | lr=8.6667e-04 | train=0.012693 | val=0.097826 | 485.27s
+Epoch 053 | lr=8.8333e-04 | train=0.013082 | val=0.098550 | 484.32s
+Epoch 054 | lr=9.0000e-04 | train=0.013088 | val=0.102752 | 485.31s
+Epoch 055 | lr=9.1667e-04 | train=0.012078 | val=0.099438 | 484.93s
+Epoch 056 | lr=9.3333e-04 | train=0.012131 | val=0.096420 | 484.69s
+Epoch 057 | lr=9.5000e-04 | train=0.012332 | val=0.111158 | 484.34s
+Epoch 058 | lr=9.6667e-04 | train=0.011960 | val=0.105043 | 484.38s
+Epoch 059 | lr=9.8333e-04 | train=0.011645 | val=0.103740 | 484.78s
+Early stopping at epoch 59. Best epoch=9, best val=0.080504
+Training finished. Best val=0.080504 at epoch 9
+[Eval] Normalized MAE=0.219556 | Normalized RMSE=0.275835
+Done.
+[JOB] Running evaluation and plotting...
+Using device: cpu
+[INFO] Configured CPU threads = 2

@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/scratch/cj32if@student.aau.dk/2153293/thermodynamics_modeling/pythorch_node/evaluate_and_plot.py", line 303, in <module>
+    main()
+  File "/scratch/cj32if@student.aau.dk/2153293/thermodynamics_modeling/pythorch_node/evaluate_and_plot.py", line 205, in main
+    headers, rows = read_csv_as_dicts(args.test)
+  File "/scratch/cj32if@student.aau.dk/2153293/thermodynamics_modeling/pythorch_node/torchdiffeq_model.py", line 91, in read_csv_as_dicts
+    with open(path, "r", newline="") as f:
+FileNotFoundError: [Errno 2] No such file or directory: './dataset_split/test_dataset.csv'
