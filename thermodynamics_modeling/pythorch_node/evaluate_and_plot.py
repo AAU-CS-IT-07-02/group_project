@@ -41,7 +41,7 @@ import runpy
 # 1) Default config (align with training)
 # -----------------------------
 DEFAULT_OUTDIR = "./out"
-DEFAULT_TEST = "./dataset_split/test_dataset.csv"
+DEFAULT_TEST = "./dataset_split/test_data.csv"
 DEFAULT_H = 48
 DEFAULT_LATENT = 16
 # Feature lists (controls/targets) are loaded from `config.yml` at runtime.
