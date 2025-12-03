@@ -115,49 +115,80 @@ int32_t compute_error(int32_t current_temp, int32_t low_threshold, int32_t high_
 		<location id="id7" x="-3325" y="-1330">
 			<urgent/>
 		</location>
+		<location id="id8" x="-1493" y="-1330">
+			<name x="-1484" y="-1326">RoomA</name>
+			<urgent/>
+		</location>
+		<location id="id9" x="-1230" y="-1330">
+			<name x="-1254" y="-1317">RoomB</name>
+			<urgent/>
+		</location>
+		<location id="id10" x="-1001" y="-1330">
+			<name x="-1025" y="-1317">RoomC</name>
+			<urgent/>
+		</location>
+		<location id="id11" x="-771" y="-1330">
+			<name x="-795" y="-1317">RoomD</name>
+			<urgent/>
+		</location>
+		<location id="id12" x="-533" y="-1330">
+			<name x="-557" y="-1317">RoomE</name>
+			<urgent/>
+		</location>
+		<location id="id13" x="-277" y="-1326">
+			<name x="-301" y="-1313">RoomF</name>
+			<urgent/>
+		</location>
+		<location id="id14" x="-23" y="-1330">
+			<name x="4" y="-1343">RemoteUpdate</name>
+			<label kind="invariant" x="21" y="-1317">time &lt;= 5</label>
+		</location>
+		<location id="id15" x="-1562" y="-1330">
+			<urgent/>
+		</location>
 		<init ref="id7"/>
-		<transition id="id8">
+		<transition id="id16">
 			<source ref="id5"/>
 			<target ref="id6"/>
 			<nail x="-2015" y="-1504"/>
 			<nail x="-1793" y="-1504"/>
 		</transition>
-		<transition id="id9">
+		<transition id="id17">
 			<source ref="id4"/>
 			<target ref="id5"/>
 			<nail x="-2278" y="-1504"/>
 			<nail x="-2057" y="-1504"/>
 		</transition>
-		<transition id="id10">
+		<transition id="id18">
 			<source ref="id3"/>
 			<target ref="id4"/>
 			<nail x="-2516" y="-1504"/>
 			<nail x="-2329" y="-1504"/>
 		</transition>
-		<transition id="id11">
+		<transition id="id19">
 			<source ref="id2"/>
 			<target ref="id3"/>
 			<nail x="-2746" y="-1504"/>
 			<nail x="-2550" y="-1504"/>
 		</transition>
-		<transition id="id12">
+		<transition id="id20">
 			<source ref="id1"/>
 			<target ref="id2"/>
 			<nail x="-2975" y="-1504"/>
 			<nail x="-2797" y="-1504"/>
 		</transition>
-		<transition id="id13">
+		<transition id="id21">
 			<source ref="id0"/>
 			<target ref="id1"/>
 			<nail x="-3239" y="-1504"/>
 			<nail x="-3035" y="-1504"/>
 		</transition>
-		<transition id="id14">
+		<transition id="id22">
 			<source ref="id7"/>
 			<target ref="id0"/>
 			<label kind="assignment" x="-3417" y="-1275">i_counter = 0</label>
 		</transition>
-		<transition id="id15" controllable="false">
+		<transition id="id23" controllable="false">
 			<source ref="id6"/>
 			<target ref="id0"/>
 			<label kind="guard" x="-3247" y="-629">time &gt;= 5</label>
@@ -195,83 +226,240 @@ time = 0</label>
 			<nail x="-1785" y="-1223"/>
 			<nail x="-3247" y="-1223"/>
 		</transition>
-		<transition id="id16">
+		<transition id="id24">
 			<source ref="id5"/>
 			<target ref="id6"/>
 			<label kind="assignment" x="-2006" y="-1283">actuator_room_f = actuator_room_low,
 rad_sign_f = rad_sign_high</label>
 		</transition>
-		<transition id="id17">
+		<transition id="id25">
 			<source ref="id5"/>
 			<target ref="id6"/>
 			<label kind="assignment" x="-1963" y="-1436">actuator_room_f = actuator_room_high,
 rad_sign_f = rad_sign_low</label>
 			<nail x="-1888" y="-1436"/>
 		</transition>
-		<transition id="id18">
+		<transition id="id26">
 			<source ref="id4"/>
 			<target ref="id5"/>
 			<label kind="assignment" x="-2295" y="-1266">actuator_room_e = actuator_room_low,
 rad_sign_e = rad_sign_high</label>
 		</transition>
-		<transition id="id19">
+		<transition id="id27">
 			<source ref="id3"/>
 			<target ref="id4"/>
 			<label kind="assignment" x="-2515" y="-1291">actuator_room_d = actuator_room_low,
 rad_sign_d = rad_sign_high</label>
 		</transition>
-		<transition id="id20">
+		<transition id="id28">
 			<source ref="id2"/>
 			<target ref="id3"/>
 			<label kind="assignment" x="-2746" y="-1257">actuator_room_c = actuator_room_low,
 rad_sign_c = rad_sign_high</label>
 		</transition>
-		<transition id="id21">
+		<transition id="id29">
 			<source ref="id1"/>
 			<target ref="id2"/>
 			<label kind="assignment" x="-2984" y="-1274">actuator_room_b = actuator_room_low,
 rad_sign_b = rad_sign_high</label>
 		</transition>
-		<transition id="id22">
+		<transition id="id30">
 			<source ref="id0"/>
 			<target ref="id1"/>
 			<label kind="assignment" x="-3213" y="-1291">actuator_room_a = actuator_room_low,
 rad_sign_a = rad_sign_high</label>
 		</transition>
-		<transition id="id23">
+		<transition id="id31">
 			<source ref="id4"/>
 			<target ref="id5"/>
 			<label kind="assignment" x="-2269" y="-1402">actuator_room_e = actuator_room_high,
 rad_sign_e = rad_sign_low</label>
 			<nail x="-2168" y="-1436"/>
 		</transition>
-		<transition id="id24">
+		<transition id="id32">
 			<source ref="id3"/>
 			<target ref="id4"/>
 			<label kind="assignment" x="-2482" y="-1445">actuator_room_d = actuator_room_high,
 rad_sign_d = rad_sign_low</label>
 			<nail x="-2414" y="-1445"/>
 		</transition>
-		<transition id="id25">
+		<transition id="id33">
 			<source ref="id2"/>
 			<target ref="id3"/>
 			<label kind="assignment" x="-2779" y="-1402">actuator_room_c = actuator_room_high,
 rad_sign_c = rad_sign_low</label>
 			<nail x="-2652" y="-1445"/>
 		</transition>
-		<transition id="id26">
+		<transition id="id34">
 			<source ref="id1"/>
 			<target ref="id2"/>
 			<label kind="assignment" x="-3009" y="-1436">actuator_room_b = actuator_room_high,
 rad_sign_b = rad_sign_low</label>
 			<nail x="-2907" y="-1453"/>
 		</transition>
-		<transition id="id27">
+		<transition id="id35">
 			<source ref="id0"/>
 			<target ref="id1"/>
 			<label kind="assignment" x="-3349" y="-1411">actuator_room_a = actuator_room_high,
 rad_sign_a = rad_sign_low</label>
 			<nail x="-3137" y="-1462"/>
+		</transition>
+		<transition id="id36">
+			<source ref="id13"/>
+			<target ref="id14"/>
+			<nail x="-252" y="-1504"/>
+			<nail x="-30" y="-1504"/>
+		</transition>
+		<transition id="id37">
+			<source ref="id12"/>
+			<target ref="id13"/>
+			<nail x="-515" y="-1504"/>
+			<nail x="-294" y="-1504"/>
+		</transition>
+		<transition id="id38">
+			<source ref="id11"/>
+			<target ref="id12"/>
+			<nail x="-753" y="-1504"/>
+			<nail x="-566" y="-1504"/>
+		</transition>
+		<transition id="id39">
+			<source ref="id10"/>
+			<target ref="id11"/>
+			<nail x="-983" y="-1504"/>
+			<nail x="-787" y="-1504"/>
+		</transition>
+		<transition id="id40">
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<nail x="-1212" y="-1504"/>
+			<nail x="-1034" y="-1504"/>
+		</transition>
+		<transition id="id41">
+			<source ref="id8"/>
+			<target ref="id9"/>
+			<nail x="-1476" y="-1504"/>
+			<nail x="-1272" y="-1504"/>
+		</transition>
+		<transition id="id42">
+			<source ref="id15"/>
+			<target ref="id8"/>
+			<label kind="assignment" x="-1654" y="-1275">i_counter = 0</label>
+		</transition>
+		<transition id="id43" controllable="false">
+			<source ref="id14"/>
+			<target ref="id8"/>
+			<label kind="guard" x="-1484" y="-629">time &gt;= 5</label>
+			<label kind="assignment" x="-1484" y="-1198">succ = uppaal_nn_update_integer(
+	t_a,t_b,t_c,t_d,t_e,t_f,
+	rad_sign_a,  000000,  actuator_room_a,  
+	rad_sign_b,  000000,  actuator_room_b,  
+	rad_sign_c,  000000,  actuator_room_c,  
+	rad_sign_d,  000000,  actuator_room_d,  
+	rad_sign_e,  000000,  actuator_room_e,  
+	rad_sign_e,  000000,  actuator_room_f, 
+	583575, 226200,  
+	100690,  000000,  000000,  000000,  000000,  
+	000000,  000000,  000000,  000000,  000000,  
+	000000,  000000,  000000,  317080,  280870,  553480, Scale
+),
+t_a = uppaal_nn_get_pred_int(0),
+t_b = uppaal_nn_get_pred_int(1),
+t_c = uppaal_nn_get_pred_int(2),
+t_d = uppaal_nn_get_pred_int(3),
+t_e = uppaal_nn_get_pred_int(4),
+t_f = uppaal_nn_get_pred_int(5),
+
+error_a = compute_error(t_a, low, high),
+error_b = compute_error(t_b, low, high),
+error_c = compute_error(t_c, low, high),
+error_d = compute_error(t_d, low, high),
+error_e = compute_error(t_e, low, high),
+error_f = compute_error(t_f, low, high),
+error_acum = (error_a + error_b + error_c + error_d + error_e + error_f),
+error_avg = (error_a + error_b + error_c + error_d + error_e + error_f) / 6,
+
+i_counter = 1 + i_counter,
+time = 0</label>
+			<nail x="-22" y="-1223"/>
+			<nail x="-1484" y="-1223"/>
+		</transition>
+		<transition id="id44">
+			<source ref="id13"/>
+			<target ref="id14"/>
+			<label kind="assignment" x="-243" y="-1283">actuator_room_f = actuator_room_low,
+rad_sign_f = rad_sign_high</label>
+		</transition>
+		<transition id="id45">
+			<source ref="id13"/>
+			<target ref="id14"/>
+			<label kind="assignment" x="-200" y="-1436">actuator_room_f = actuator_room_high,
+rad_sign_f = rad_sign_low</label>
+			<nail x="-125" y="-1436"/>
+		</transition>
+		<transition id="id46">
+			<source ref="id12"/>
+			<target ref="id13"/>
+			<label kind="assignment" x="-532" y="-1266">actuator_room_e = actuator_room_low,
+rad_sign_e = rad_sign_high</label>
+		</transition>
+		<transition id="id47">
+			<source ref="id11"/>
+			<target ref="id12"/>
+			<label kind="assignment" x="-752" y="-1291">actuator_room_d = actuator_room_low,
+rad_sign_d = rad_sign_high</label>
+		</transition>
+		<transition id="id48">
+			<source ref="id10"/>
+			<target ref="id11"/>
+			<label kind="assignment" x="-983" y="-1257">actuator_room_c = actuator_room_low,
+rad_sign_c = rad_sign_high</label>
+		</transition>
+		<transition id="id49">
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<label kind="assignment" x="-1221" y="-1274">actuator_room_b = actuator_room_low,
+rad_sign_b = rad_sign_high</label>
+		</transition>
+		<transition id="id50">
+			<source ref="id8"/>
+			<target ref="id9"/>
+			<label kind="assignment" x="-1450" y="-1291">actuator_room_a = actuator_room_low,
+rad_sign_a = rad_sign_high</label>
+		</transition>
+		<transition id="id51">
+			<source ref="id12"/>
+			<target ref="id13"/>
+			<label kind="assignment" x="-506" y="-1402">actuator_room_e = actuator_room_high,
+rad_sign_e = rad_sign_low</label>
+			<nail x="-405" y="-1436"/>
+		</transition>
+		<transition id="id52">
+			<source ref="id11"/>
+			<target ref="id12"/>
+			<label kind="assignment" x="-719" y="-1445">actuator_room_d = actuator_room_high,
+rad_sign_d = rad_sign_low</label>
+			<nail x="-651" y="-1445"/>
+		</transition>
+		<transition id="id53">
+			<source ref="id10"/>
+			<target ref="id11"/>
+			<label kind="assignment" x="-1016" y="-1402">actuator_room_c = actuator_room_high,
+rad_sign_c = rad_sign_low</label>
+			<nail x="-889" y="-1445"/>
+		</transition>
+		<transition id="id54">
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<label kind="assignment" x="-1246" y="-1436">actuator_room_b = actuator_room_high,
+rad_sign_b = rad_sign_low</label>
+			<nail x="-1144" y="-1453"/>
+		</transition>
+		<transition id="id55">
+			<source ref="id8"/>
+			<target ref="id9"/>
+			<label kind="assignment" x="-1586" y="-1411">actuator_room_a = actuator_room_high,
+rad_sign_a = rad_sign_low</label>
+			<nail x="-1374" y="-1462"/>
 		</transition>
 	</template>
 	<template>
@@ -292,14 +480,14 @@ void read() {
         }
     }
 }</declaration>
-		<location id="id28" x="0" y="0">
+		<location id="id56" x="0" y="0">
 		</location>
-		<location id="id29" x="93" y="0">
+		<location id="id57" x="93" y="0">
 		</location>
-		<init ref="id28"/>
-		<transition id="id30">
-			<source ref="id28"/>
-			<target ref="id29"/>
+		<init ref="id56"/>
+		<transition id="id58">
+			<source ref="id56"/>
+			<target ref="id57"/>
 			<label kind="assignment" x="18" y="0">read()</label>
 		</transition>
 	</template>

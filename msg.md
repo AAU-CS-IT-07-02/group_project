@@ -1,0 +1,79 @@
+# Edit region
+## Report structure (draft)
+- Introduction
+    - Soft narrative preface about smart buildings, use/benefits/technical challenges (maintenance, design, upgrades/improvements difficulties)/how common they are, why they are important
+    - Introduce TMV 23, use their paper
+    - Context Subsection:
+        - Current state of TMV
+            - Hardware
+            - Current BMS
+            - Limitations
+            - Problems caused by limitations
+            - Previous developments and paths explored if any (past projects, iniciatives from Simon/Rasmus)
+
+- Problem statement and proposed solution
+    - Out of all the shortcommings in TMV 23, which one do we care about
+        - Lack of predictive and collaborative controllers (vs the existing reactive P controller) cause:
+            - actuator wear
+            - inneficiencies in energy usage
+            - lack of comfort (with only reactions the actuators cannot take the room/cluster/building to the correct state fast enough (ie. no active mechanical cooling))
+            - diffculties having priorities or constraints in existing controllers
+            - oscillations due to lack of communication between actuators and their changes of 
+        - [TODO]: add the rest of those identified during the first meeting and the initial presentation
+    - Explain conceptially how we would solve it and how we came to that decisions
+        - What things need to change in order to improve the situation
+        - What measures one can take to make those changes
+        - This defines the hard and soft requirements for actually implemented the solution
+            - Here we can mention the forces that shape our decision making, requirements, objectives of the semester, nice-to-haves, etc
+        - What a full solution would look like: basically our roadmap with M1/M2/M3
+            - It must be very clear in this section our focus is M1, with M2 being a nice to have, and leaving M3 for future work
+- Methodology
+    - How we organize ourselves and our work (systems, processes, protocols)
+    - How we will try to organize the research/development process
+        - How we would/will identify the available approaches for our desired solution
+        - Characterize/define them
+        - Sort them in order of priority and explain how we did it
+            - Basically means we chose by trying to find the one that would fit the most requirements, and go down the list by letting go of some requirements for the sake of progress
+        - Explain we would/will sytematically explore these options until we find a suitable one
+            - this sets the stage for our failures/pivots/success
+        - Milestones for the project
+            - Explain that the milestones have been decided to correspond with independent software elements with well-defined interfaces to encourage modularity and independent work
+    
+- Design and Implementation of explored solutions
+    - Yes, the name of this section has to be changed
+    - I would like this section to have the following structure:
+        - M1 Models:
+            - Attempt type (classic ML with standard training, )
+                - Black/White/Grey/Etc box? 
+                - Here or inside each attempt but, what requirements does it fulfil and which it does not
+                - Attempt name 1
+                    - Technique explanation
+                    - Design
+                    - MCC3 considerations
+                        - What elements 
+                    - Implementation
+                    - Outcome
+                - Attempt name n
+        - M2 Controllers:
+            - This one is trickier because the limiting factor was not getting controller libraries to work, but rather having them be compatible with models
+            - do_mpc:
+                - Technique explanation
+                - Why it would be suitable
+                - What we tried
+                - Why we cannot use it
+            - Pure python:
+            - Uppal:
+                - Technique explanation
+                - Why its suitable
+                - How we made it work
+- Results and Evaluation of successful approach (torchdiffeq and UPPAAL)
+    - Model evaluation
+        - Using real data to ascertain accuracy and horizon limit
+            - Closed vs open loop simulation
+            - Long vs short prediction horizons
+            - Multiple scenarios
+        - Using synthetic initial conditions
+            - Agai
+
+- Conclusion
+- Future work
