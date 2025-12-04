@@ -85,9 +85,10 @@
 - Design and Implementation of explored solutions
     - Data: What actually happened
         - AAU BMS API: Slow/unreliable; resolved with IT support but pivoted to pre-existing dataset
-        - Simon's Dataset: 6-room office (RoomA–F), Feb–Dec 2023; HuggingFace hosted
+        - Simon's Dataset: 6-room office (RoomA–F), Feb–Dec 2023; HuggingFace hosted;
         - Processing: Interpolation, MinMax normalization, weather/occupancy augmentation
         - Final: `/thermodynamics_modeling/neuromancer/dataset_split/`, 80/20 chronological split
+        - Limitations: Because some of the discrete actuators data (particularly AHU_active) contain values that do not appear in the documentation (see "Detailed operational building data for six office rooms in Denmark: Occupancy, indoor environment, heating, ventilation, lighting and room control monitoring with sub-hourly temporal resolution"), they introduce ambiguity and inconsistency. This was discovered while implementing the random controller in python, as it selects exactly one value from the set of documented values.
     
     - M1 Models:
             - Attempt type (classic ML with standard training, )
