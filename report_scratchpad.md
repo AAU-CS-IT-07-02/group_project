@@ -119,6 +119,7 @@
                 - Stratego 
                 - Int/Double discretization
 - Results and Evaluation of successful approach (torchdiffeq and UPPAAL)
+    - Gantt chart (NEEDS TO BE MOVED TO AN APPROPRIATE PLACE)
     - Model evaluation
         - Using real data to ascertain accuracy and horizon limit
             - Closed vs open loop simulation
