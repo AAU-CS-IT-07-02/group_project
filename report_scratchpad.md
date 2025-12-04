@@ -90,8 +90,7 @@ In parallel:
 
 - Literature Review & State of the Art
     
-    [AI-Generated Draft: Review and customize before finalizing]
-    
+   {* 
     - Smart Buildings: Context & Requirements
         - Definition: Automated, monitored, integrated systems optimizing energy, comfort, sustainability
         - Core challenges: Fragmentation, reactive control, data quality, scalability
@@ -115,7 +114,7 @@ In parallel:
         - PINNs: Physics-aware; reduces data; requires good understanding of governing equations
         - Key constraint for buildings: Data sparse, noisy, incomplete; generalization across buildings difficult
     
-    [End AI-Generated Draft]
+   *}
 
 
 - Methodology
@@ -155,18 +154,23 @@ In parallel:
                     - Implementation
                     - Outcome
                 - Attempt name n
-        - M2 Controllers:
-            - This one is trickier because the limiting factor was not getting controller libraries to work, but rather having them be compatible with models
-            - do_mpc:
-                - Technique explanation
-                - Why it would be suitable
-                - What we tried
-                - Why we cannot use it
-            - Pure python:
-            - Uppal:
-                - Technique explanation
-                - Why its suitable
-                - How we made it work
+    - M2 Controllers:
+        - This one is trickier because the limiting factor was not getting controller libraries to work, but rather having them be compatible with models
+        - do_mpc:
+            - Technique explanation
+            - Why it would be suitable
+            - What we tried
+            - Why we cannot use it
+        - Pure python:
+        - Uppal:
+            - Technique explanation
+            - Why its suitable
+            - How we made it work
+            - Usage
+                - Classic UPPAAL
+                - TiGA
+                - Stratego 
+                - Int/Double discretization
 - Results and Evaluation of successful approach (torchdiffeq and UPPAAL)
     - Model evaluation
         - Using real data to ascertain accuracy and horizon limit
