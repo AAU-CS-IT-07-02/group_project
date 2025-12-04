@@ -109,7 +109,6 @@ In parallel:
     
     - Data-Driven Identification Techniques
         - PySINDy: Discovers interpretable sparse equations; limited to smooth, low-dimensional dynamics
-        - DMD: Fast modal decomposition; linear assumption; difficult for control
         - Neural networks: General-purpose; needs lots of data; black-box
         - PINNs: Physics-aware; reduces data; requires good understanding of governing equations
         - Key constraint for buildings: Data sparse, noisy, incomplete; generalization across buildings difficult
@@ -119,6 +118,15 @@ In parallel:
 
 - Methodology
     - How we organize ourselves and our work (systems, processes, protocols)
+        - Git/Github
+        - Commit structure, PR protocol
+        - Branch organization (trunk based dev)
+        - Wiki
+        - Issues creation, organization and assignment
+        - Project
+            - Roadmap
+            - Custom properties
+        - Mkdocs
     - How we will organize the research/development process
         - How we identify the available approaches for our desired solution
         - Characterize/define them
