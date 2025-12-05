@@ -133,6 +133,135 @@
 - Future work
 
 
+# Edit region
+## Report structure (draft 2)
+- Introduction
+    - Soft narrative preface about smart buildings, use/benefits/technical challenges (maintenance, design, upgrades/improvements difficulties)/how common they are, why they are important
+    - Introduce TMV 23, use their paper
+    - Context Subsection:
+        - Current state of TMV
+            - Hardware
+            - Current BMS
+            - Limitations
+            - Problems caused by limitations
+            - Previous developments and paths explored if any (past projects, iniciatives from Simon/Rasmus)
+
+- Problem statement and proposed solution
+    - Out of all the shortcommings in TMV 23, which one do we care about
+        - Lack of predictive and collaborative controllers (vs the existing reactive P controller) cause:
+            - actuator wear
+            - inneficiencies in energy usage
+            - lack of comfort (with only reactions the actuators cannot take the room/cluster/building to the correct state fast enough (ie. no active mechanical cooling))
+            - diffculties having priorities or constraints in existing controllers
+            - oscillations due to lack of communication between actuators and their changes of 
+        - [TODO]: add the rest of those identified during the first meeting and the initial presentation
+    - Explain conceptially how we would solve it and how we came to that decisions
+        - What things need to change in order to improve the situation
+        - What measures one can take to make those changes
+        - This defines the hard and soft requirements for actually implemented the solution
+            - Here we can mention the forces that shape our decision making, requirements, objectives of the semester, nice-to-haves, etc
+        - What a full solution would look like: basically our roadmap with M1/M2/M3
+            - It must be very clear in this section our focus is M1, with M2 being a nice to have, and leaving M3 for future work
+
+- Literature Review & State of the Art
+
+    - Smart Buildings: Context & Requirements
+        - Definition: Automated, monitored, integrated systems optimizing energy, comfort, sustainability
+        - Core challenges: Fragmentation, reactive control, data quality, scalability
+    
+    - Building Modeling Approaches
+        - White-box (physics-based): Interpretable but complex; hard to parameterize
+        - Grey-box (hybrid): Balance interpretability + flexibility; requires domain knowledge
+        - Black-box (data-driven): Flexible but needs large, quality datasets; less interpretable
+        - Neural ODE approaches: Flexible time-series modeling; computational cost & portability concerns
+        - Mechanistic interpretability
+    
+    - Control Strategies for Building HVAC
+        - Reactive (P/PI/PID): Simple, robust, deployed widely; no anticipation → oscillations & inefficiency
+        - MPC: Optimal over horizon; requires accurate model & computational resources
+        - Learning-based: Adaptive; safety & convergence concerns
+    
+    - Data-Driven Identification Techniques (really concise)
+        - PySINDy: Discovers interpretable sparse equations; limited to smooth, low-dimensional dynamics
+        - Neural networks: General-purpose; needs lots of data; black-box
+        - PINNs: Physics-aware; reduces data; requires good understanding of governing equations
+        - Key constraint for buildings: Data sparse, noisy, incomplete; generalization across buildings difficult
+
+    - UPPAAL
+        - Classic, TiGa, Stratego, SMC
+        - External/Remote models
+        - Model characterization
+
+- Methodology
+    - How we organize ourselves and our work (systems, processes, protocols)
+        - Git/Github
+        - Commit structure, PR protocol
+        - Branch organization (trunk based dev)
+        - Wiki
+        - Issues creation, organization and assignment
+        - Project
+            - Roadmap
+            - Custom properties
+        - Mkdocs
+    - How we will organize the research/development process
+        - How we identify the available approaches for our desired solution
+        - Characterize/define them
+        - Data strategy:
+            - Data requirements: Complete time-series from sensors, actuators, configurations for combinations of rooms (floors, clusters, individual)
+            - Quality standards: Minimal gaps, consistent timesteps, labeled features
+            - Processing pipeline: Interpolation, normalization, augmentation (weather, occupancy)
+        - Milestones for the project
+            - Explain that milestones correspond with independent software elements with well-defined interfaces to encourage modularity and independent work
+    
+- Design and Implementation of explored solutions
+    - Data: What actually happened
+        - AAU BMS API: Slow/unreliable; resolved with IT support but pivoted to pre-existing dataset
+        - Simon's Dataset: 6-room office (RoomA–F), Feb–Dec 2023; HuggingFace hosted;
+        - Processing: Interpolation, MinMax normalization, weather/occupancy augmentation
+        - Final: `/thermodynamics_modeling/neuromancer/dataset_split/`, 80/20 chronological split
+        - Limitations: Since some of the discrete actuators data (particularly AHU_active) contain values that do not appear in the documentation (see "Detailed operational building data for six office rooms in Denmark: Occupancy, indoor environment, heating, ventilation, lighting and room control monitoring with sub-hourly temporal resolution"), they introduce ambiguity and inconsistency. This was discovered while implementing the random controller in python (it selects exactly one value from the set of documented values).
+    
+    - M1 Model:
+                - Torchdiffeq 
+                    - Black/White/Grey/Etc box?
+                    - Technique explanation
+                    - Design
+                        - training consideration
+                        - MCC3 considerations
+                            - What elements 
+                    - Implementation
+                    - Outcome
+    - M2 Controllers:
+        - Uppal:
+            - Technique explanation
+            - Why its suitable
+            - How we made it work
+            - Usage
+                - Classic UPPAAL
+                - TiGA
+                - Stratego 
+                - Int/Double discretization
+- Results and Evaluation of successful approach (torchdiffeq and UPPAAL)
+    - Gantt chart (NEEDS TO BE MOVED TO AN APPROPRIATE PLACE)
+    - Model evaluation (and interpretability)
+        - Using real data to ascertain accuracy and horizon limit
+            - Closed vs open loop simulation
+            - Long vs short prediction horizons
+            - Multiple scenarios
+        - Using synthetic initial conditions
+            - Agai
+        - Stocastic Probability Analisis (Hypothesis testing + UPPAAL SMC), in lieu of mechanistic interpretability
+- Discussion
+    - alternative and failed attempts
+        - the approach
+        - why it did not work
+        - how we pivoted (what we learned)
+- Conclusion
+    - talk about the outcomes of connecting a NN to uppaal
+    - using uppaal for interpreting a black box model
+- Future work
+
+
 
 
 
