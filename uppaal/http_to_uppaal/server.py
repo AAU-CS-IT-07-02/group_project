@@ -180,7 +180,7 @@ class ModelWrapper:
 
         if not latent_dim or latent_dim <= 0:
             # As a last resort choose a reasonable default
-            latent_dim = 16
+            latent_dim = 32
             print(f"Using default latent_dim={latent_dim}")
 
         # Instantiate model and load weights
