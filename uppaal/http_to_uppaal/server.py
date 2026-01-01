@@ -51,7 +51,7 @@ PYTORCH_NODE_DIR = BASE_DIR.parent / "thermodynamics_modeling" / "pythorch_node"
 TRAINER_MODULE = PYTORCH_NODE_DIR / "torchdiffeq_model.py"
 CONFIG_YML = PYTORCH_NODE_DIR / "config.yml"
 # Default model output directory (the training scripts save scalers.pt / best_model.pt here)
-DEFAULT_MODEL_OUT = PYTORCH_NODE_DIR / "out"
+DEFAULT_MODEL_OUT = PYTORCH_NODE_DIR / "out_16"
 
 
 class SeqInput(BaseModel):

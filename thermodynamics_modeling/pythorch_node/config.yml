@@ -17,7 +17,7 @@ model:
   patience: 3
   warmup: 2
   epochs: 20
-  latent_space_dimensions: 32
+  latent_space_dimensions: 16
 
 outdoor: [
     "Outdoor:Solar__direct_radiation__east_façade",
