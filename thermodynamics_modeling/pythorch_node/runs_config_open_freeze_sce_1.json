@@ -1,0 +1,6 @@
+{
+  "runs": [
+    {"path": "./out_16/simulation_results_H-16_open_sce_1.csv", "label": "Regular", "color": "tab:orange"},
+    {"path": "./out_16/simulation_results_H-32_open_freeze_sce_1.csv", "label": "Fronzen observations", "color": "tab:purple"}
+    ]
+}
