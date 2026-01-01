@@ -27,9 +27,10 @@ import matplotlib.pyplot as plt
 import yaml
 import runpy
 import numpy as np
+import pandas as pd
 
 
-DEFAULT_OUTDIR = "./out"
+DEFAULT_OUTDIR = "./out_16"
 DEFAULT_DATA = "./dataset_split/test_data.csv"
 DEFAULT_H = 48
 DEFAULT_LATENT = 16
@@ -87,6 +88,34 @@ def log_simulation_step(outdir, current_idx, y0, controls_seq, t_span):
         log_file.write(f"t_span: {t_span_str}\n\n")
 
 
+def freeze_observations_in_controls(controls_seq, observation_indices):
+    """
+    Freeze observations (weather data) to the first timestep value.
+    Repeats the first timestep's observations for the entire horizon.
+    
+    Args:
+        controls_seq: Control sequence tensor [1, H, d_u]
+        observation_indices: List of indices in d_u that correspond to observations
+    
+    Returns:
+        Modified controls_seq with frozen observations [1, H, d_u]
+    """
+    if not observation_indices:
+        return controls_seq
+    
+    # Clone to avoid modifying original
+    controls_frozen = controls_seq.clone()
+    
+    # Extract first timestep observations
+    first_obs = controls_seq[0, 0, observation_indices]  # [num_obs]
+    
+    # Replicate for all H timesteps
+    for t in range(controls_seq.shape[1]):
+        controls_frozen[0, t, observation_indices] = first_obs
+    
+    return controls_frozen
+
+
 def main():
     parser = argparse.ArgumentParser(description="Simulate model over dataset in window intervals.")
     parser.add_argument("--data", type=str, default=DEFAULT_DATA, help="Path to data CSV")
@@ -101,11 +130,16 @@ def main():
     parser.add_argument("--dpi", type=int, default=140, help="Plot DPI")
     parser.add_argument("--controller", default=None, action="store_true", help="Specify which controller to use")
     parser.add_argument("--loop_type", type=str, default="open", choices=["open", "closed"], help="Type of simulation loop, open uses real data as initial state, closed uses previous prediction")
+    parser.add_argument("--freeze-observations", action="store_true", help="Freeze observations (e.g., weather) to first timestep value for entire horizon")
     args = parser.parse_args()
 
     # Default stride to H if not specified
     if args.stride is None:
         args.stride = args.H
+
+    # Validate freeze-observations option
+    if args.freeze_observations and (args.controller or args.loop_type != "open"):
+        raise ValueError("--freeze-observations can only be used with open-loop mode (--loop_type open without --controller)")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[INFO] Using device: {device}")
@@ -119,6 +153,7 @@ def main():
         config = yaml.safe_load(f)
 
     CONTROL_FEATURES = list(config.get("observations", [])) + list(config.get("disturbances", [])) + list(config.get("outdoor", []))
+    OBSERVATIONS = list(config.get("observations", []))
     ROOMS_TEMP = list(config.get("rooms_temp", []))
 
     # Load utilities and model from trainer
@@ -172,6 +207,12 @@ def main():
     print(f"[INFO] Simulating from index {start} to {end} (total {end - start} steps)")
     print(f"[INFO] Prediction horizon H={args.H}, Control horizon (stride)={args.stride}")
 
+    # Compute observation indices for freeze option
+    obs_indices = []
+    if args.freeze_observations:
+        obs_indices = list(range(len(OBSERVATIONS)))
+        print(f"[INFO] Freezing observations: {OBSERVATIONS}")
+
     # Time vector for ODE
     t_span = torch.linspace(0, args.H - 1, args.H, dtype=torch.float32, device=device)
 
@@ -197,6 +238,10 @@ def main():
             # Extract window
             controls_seq = controls_n[current_idx:current_idx + args.H].unsqueeze(0)  # [1, H, d_u]
             y_seq_true = states[current_idx:current_idx + args.H]                     # [H, d_y]
+            
+            # Freeze observations if requested
+            if args.freeze_observations:
+                controls_seq = freeze_observations_in_controls(controls_seq, obs_indices)
             
             # this function calls a the controller specified by the user
             controls_seq = run_controller(controller=args.controller, controls_seq=controls_seq, y0=y0, t_span=t_span)
@@ -224,6 +269,9 @@ def main():
     y_true_full = torch.cat(all_y_true, dim=0)  # [total_steps, d_y]
     y_pred_full = torch.cat(all_y_pred, dim=0)  # [total_steps, d_y]
 
+    # Save results to CSV
+    save_simulation_csv(y_true_full, y_pred_full, args.out, ROOMS_TEMP, start)
+
     # Plot full trajectory
     plot_simulation(y_true_full, y_pred_full, args.out, ROOMS_TEMP, args.show_real, args.dpi, args.solver)
 
@@ -241,6 +289,54 @@ def main():
     print(f"[INFO] Saved metrics to {metrics_path}")
 
     print("[INFO] Done.")
+
+
+def save_simulation_csv(y_true, y_pred, outdir, room_names, start_idx):
+    """
+    Save simulation results to CSV files for stitching multiple runs together.
+    
+    Args:
+        y_true: [total_steps, d_y] tensor of real temperatures
+        y_pred: [total_steps, d_y] tensor of predicted temperatures
+        outdir: Output directory
+        room_names: List of room/output names
+        start_idx: Starting index in the dataset (for tracking absolute time)
+    """
+    os.makedirs(outdir, exist_ok=True)
+    total_steps = y_true.shape[0]
+    
+    # Convert to numpy
+    y_true_np = y_true.cpu().numpy()
+    y_pred_np = y_pred.cpu().numpy()
+    
+    # Create dataframe with step indices and room data
+    data_dict = {"step_idx": np.arange(start_idx, start_idx + total_steps)}
+    
+    # Add real data columns
+    for i, room in enumerate(room_names):
+        data_dict[f"{room}_real"] = y_true_np[:, i]
+    
+    # Add predicted data columns
+    for i, room in enumerate(room_names):
+        data_dict[f"{room}_pred"] = y_pred_np[:, i]
+    
+    df = pd.DataFrame(data_dict)
+    
+    # Save to CSV
+    csv_path = os.path.join(outdir, "simulation_results.csv")
+    df.to_csv(csv_path, index=False)
+    print(f"[INFO] Saved CSV results to {csv_path}")
+    
+    # Also save a separate predictions-only CSV for easy concatenation
+    pred_dict = {"step_idx": np.arange(start_idx, start_idx + total_steps)}
+    for i, room in enumerate(room_names):
+        pred_dict[f"{room}_real"] = y_true_np[:, i]
+        pred_dict[f"{room}_pred"] = y_pred_np[:, i]
+    
+    df_pred = pd.DataFrame(pred_dict)
+    pred_csv_path = os.path.join(outdir, "simulation_predictions.csv")
+    df_pred.to_csv(pred_csv_path, index=False)
+    print(f"[INFO] Saved predictions CSV to {pred_csv_path}")
 
 
 def plot_simulation(y_true, y_pred, outdir, room_names, show_real, dpi, solver):

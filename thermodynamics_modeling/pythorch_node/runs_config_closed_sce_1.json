@@ -1,0 +1,9 @@
+{
+  "runs": [
+    {"path": "./out_16/simulation_results_H-1_closed_sce_1.csv", "label": "H-1", "color": "tab:red"},
+    {"path": "./out_16/simulation_results_H-2_closed_sce_1.csv", "label": "H-2", "color": "tab:green"},
+    {"path": "./out_16/simulation_results_H-4_closed_sce_1.csv", "label": "H-4", "color": "tab:orange"},
+    {"path": "./out_16/simulation_results_H-8_closed_sce_1.csv", "label": "H-8", "color": "tab:purple"},
+    {"path": "./out_16/simulation_results_H-16_closed_sce_1.csv", "label": "H-16", "color": "tab:pink"}
+  ]
+}

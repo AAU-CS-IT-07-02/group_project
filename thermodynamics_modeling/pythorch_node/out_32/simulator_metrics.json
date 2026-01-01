@@ -1,0 +1,31 @@
+{
+  "windows": 400,
+  "H": 1,
+  "stride": 1,
+  "metrics": {
+    "RoomA:Sensor__room_temperature": {
+      "MAE": 1.241796612739563,
+      "RMSE": 1.4652348756790161
+    },
+    "RoomB:Sensor__room_temperature": {
+      "MAE": 0.785698413848877,
+      "RMSE": 1.2051602602005005
+    },
+    "RoomC:Sensor__room_temperature": {
+      "MAE": 0.668211042881012,
+      "RMSE": 1.005303978919983
+    },
+    "RoomD:Sensor__room_temperature": {
+      "MAE": 1.450771450996399,
+      "RMSE": 1.527784824371338
+    },
+    "RoomE:Sensor__room_temperature": {
+      "MAE": 0.9135848879814148,
+      "RMSE": 1.0829473733901978
+    },
+    "RoomF:Sensor__room_temperature": {
+      "MAE": 0.6913500428199768,
+      "RMSE": 0.8804605603218079
+    }
+  }
+}
