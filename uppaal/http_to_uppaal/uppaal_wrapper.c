@@ -141,6 +141,18 @@ This function is useful when UPPAAL only needs a single room value per call.
 If you need all room temperatures at once, prefer calling
 `uppaal_nn_update(...)` followed by repeated `uppaal_nn_get_pred(i)` calls.
 */
+double sharing_array(double y0[], int n_y0, double cy[], int n_cy) {
+    y0[0] = 555.0;
+    cy[0] = 45.0;
+    return y0[1];
+}
+// double uppaal_nn_infer_scalar_fixed(int room_id, double r_y0[], int n_y0, double r_cy[], int n_cy) {
+    
+//     double y0[n_y0];
+//     double controls[n_cy];
+//     memcpy(y0, r_y0, n_y0 * sizeof(double));
+//     memcpy(controls, r_cy, n_cy * sizeof(double));
+
 double uppaal_nn_infer_scalar_fixed(int room_id,
     double y0_0,double y0_1,double y0_2,double y0_3,double y0_4,double y0_5,
     double c0,double c1,double c2,double c3,double c4,double c5,double c6,double c7,double c8,double c9,
@@ -201,6 +213,93 @@ double uppaal_nn_infer_scalar_fixed(int room_id,
 }
 
 /*
+Integer variant of uppaal_nn_infer_scalar_fixed
+-----------------------------------------------
+Accepts integer inputs scaled by `scale` factor, performs inference, and returns
+a scaled integer result. This wrapper allows UPPAAL models using fixed-point
+arithmetic to call the neural network inference seamlessly.
+
+Parameters:
+ - room_id: room index [0, NUM_ROOMS-1]
+ - y0_0 through y0_5: scaled initial state values (int32_t)
+ - c0 through c35: scaled control values (int32_t)
+ - scale: scaling factor to convert int to double (e.g., 10000 means divide by 10000)
+
+Returns: scaled integer prediction for the requested room, or INT_MIN on error.
+*/
+int uppaal_nn_infer_scalar_integer(int room_id,
+    int y0_0, int y0_1, int y0_2, int y0_3, int y0_4, int y0_5,
+    int c0, int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9,
+    int c10, int c11, int c12, int c13, int c14, int c15, int c16, int c17, int c18, int c19,
+    int c20, int c21, int c22, int c23, int c24, int c25, int c26, int c27, int c28, int c29,
+    int c30, int c31, int c32, int c33, int c34, int c35, int scale
+) {
+    if(scale <= 0) return INT_MIN; /* Invalid scale factor */
+    
+    /* Convert integer inputs to doubles by dividing by scale */
+    double scale_d = (double)scale;
+    double y0[6] = {
+        y0_0 / scale_d, y0_1 / scale_d, y0_2 / scale_d,
+        y0_3 / scale_d, y0_4 / scale_d, y0_5 / scale_d
+    };
+    double controls[36] = {
+        c0 / scale_d, c1 / scale_d, c2 / scale_d, c3 / scale_d, c4 / scale_d, c5 / scale_d,
+        c6 / scale_d, c7 / scale_d, c8 / scale_d, c9 / scale_d, c10 / scale_d, c11 / scale_d,
+        c12 / scale_d, c13 / scale_d, c14 / scale_d, c15 / scale_d, c16 / scale_d, c17 / scale_d,
+        c18 / scale_d, c19 / scale_d, c20 / scale_d, c21 / scale_d, c22 / scale_d, c23 / scale_d,
+        c24 / scale_d, c25 / scale_d, c26 / scale_d, c27 / scale_d, c28 / scale_d, c29 / scale_d,
+        c30 / scale_d, c31 / scale_d, c32 / scale_d, c33 / scale_d, c34 / scale_d, c35 / scale_d
+    };
+
+    const char *url = "http://127.0.0.1:8000/infer";
+    char *payload = build_payload_from_flat(y0, 6, controls, 36, 1, "rk4", 0);
+    if(!payload) return INT_MIN;
+
+    struct MemoryStruct resp;
+    resp.memory = malloc(1);
+    resp.size = 0;
+
+    CURL *curl = curl_easy_init();
+    if(!curl) { free(payload); free(resp.memory); return INT_MIN; }
+
+    struct curl_slist *hdrs = NULL;
+    hdrs = curl_slist_append(hdrs, "Content-Type: application/json");
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, hdrs);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&resp);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3L);
+
+    CURLcode rc = curl_easy_perform(curl);
+
+    int out = INT_MIN;
+    if(rc == CURLE_OK) {
+        cJSON *j = cJSON_Parse(resp.memory);
+        if(j) {
+            cJSON *pred = cJSON_GetObjectItemCaseSensitive(j, "prediction");
+            if(cJSON_IsArray(pred)) {
+                cJSON *first_row = cJSON_GetArrayItem(pred, 0);
+                if(first_row && cJSON_IsArray(first_row)) {
+                    cJSON *first_val = cJSON_GetArrayItem(first_row, room_id);
+                    if(first_val && cJSON_IsNumber(first_val)) {
+                        /* Convert double result back to scaled integer */
+                        out = (int)(first_val->valuedouble * scale_d);
+                    }
+                }
+            }
+            cJSON_Delete(j);
+        }
+    }
+
+    curl_slist_free_all(hdrs);
+    curl_easy_cleanup(curl);
+    free(payload);
+    free(resp.memory);
+    return out;
+}
+
+/*
     Alternative approach (recommended)
     -------------------------------
     The functions below implement a two-step pattern that is safer and more
@@ -230,6 +329,7 @@ double uppaal_nn_infer_scalar_fixed(int room_id,
 
 #define NUM_ROOMS 6
 static double latest_prediction[NUM_ROOMS] = {NAN, NAN, NAN, NAN, NAN, NAN};
+static int latest_prediction_int[NUM_ROOMS] = {INT_MIN, INT_MIN, INT_MIN, INT_MIN, INT_MIN, INT_MIN};
 
 int uppaal_nn_update(
     double y0_0,double y0_1,double y0_2,double y0_3,double y0_4,double y0_5,
@@ -298,6 +398,97 @@ int uppaal_nn_update(
     return success;
 }
 
+/*
+Integer variant of uppaal_nn_update
+------------------------------------
+Accepts integer inputs scaled by `scale` factor, performs inference, and stores
+the scaled integer results in the internal static buffer `latest_prediction_int`.
+
+Parameters:
+ - y0_0 through y0_5: scaled initial state values (int32_t)
+ - c0 through c35: scaled control values (int32_t)
+ - scale: scaling factor to convert int to double (e.g., 10000 means divide by 10000)
+
+Returns: 1 on success, 0 on failure. Results are stored in `latest_prediction_int`.
+*/
+int uppaal_nn_update_integer(
+    int y0_0, int y0_1, int y0_2, int y0_3, int y0_4, int y0_5,
+    int c0, int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9,
+    int c10, int c11, int c12, int c13, int c14, int c15, int c16, int c17, int c18, int c19,
+    int c20, int c21, int c22, int c23, int c24, int c25, int c26, int c27, int c28, int c29,
+    int c30, int c31, int c32, int c33, int c34, int c35, int scale
+) {
+    if(scale <= 0) return 0; /* Invalid scale factor */
+    
+    /* Convert integer inputs to doubles by dividing by scale */
+    double scale_d = (double)scale;
+    double y0[6] = {
+        y0_0 / scale_d, y0_1 / scale_d, y0_2 / scale_d,
+        y0_3 / scale_d, y0_4 / scale_d, y0_5 / scale_d
+    };
+    double controls[36] = {
+        c0 / scale_d, c1 / scale_d, c2 / scale_d, c3 / scale_d, c4 / scale_d, c5 / scale_d,
+        c6 / scale_d, c7 / scale_d, c8 / scale_d, c9 / scale_d, c10 / scale_d, c11 / scale_d,
+        c12 / scale_d, c13 / scale_d, c14 / scale_d, c15 / scale_d, c16 / scale_d, c17 / scale_d,
+        c18 / scale_d, c19 / scale_d, c20 / scale_d, c21 / scale_d, c22 / scale_d, c23 / scale_d,
+        c24 / scale_d, c25 / scale_d, c26 / scale_d, c27 / scale_d, c28 / scale_d, c29 / scale_d,
+        c30 / scale_d, c31 / scale_d, c32 / scale_d, c33 / scale_d, c34 / scale_d, c35 / scale_d
+    };
+
+    const char *url = "http://127.0.0.1:8000/infer";
+    char *payload = build_payload_from_flat(y0, 6, controls, 36, 1, "rk4", 0);
+    if(!payload) return 0;
+
+    struct MemoryStruct resp;
+    resp.memory = malloc(1);
+    resp.size = 0;
+
+    CURL *curl = curl_easy_init();
+    if(!curl) { free(payload); free(resp.memory); return 0; }
+
+    struct curl_slist *hdrs = NULL;
+    hdrs = curl_slist_append(hdrs, "Content-Type: application/json");
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, hdrs);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&resp);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3L);
+
+    /* Perform the HTTP request synchronously. On success parse the JSON and
+       copy the first output row into the `latest_prediction_int` static buffer
+       after scaling. */
+    CURLcode rc = curl_easy_perform(curl);
+    int success = 0;
+    if(rc == CURLE_OK) {
+        cJSON *j = cJSON_Parse(resp.memory);
+        if(j) {
+            cJSON *pred = cJSON_GetObjectItemCaseSensitive(j, "prediction");
+            if(cJSON_IsArray(pred)) {
+                cJSON *first_row = cJSON_GetArrayItem(pred, 0);
+                if(first_row && cJSON_IsArray(first_row)) {
+                    for(int i = 0; i < NUM_ROOMS; ++i) {
+                        cJSON *val = cJSON_GetArrayItem(first_row, i);
+                        if(val && cJSON_IsNumber(val)) {
+                            latest_prediction_int[i] = (int)(val->valuedouble * scale_d);
+                        } else {
+                            latest_prediction_int[i] = INT_MIN;
+                        }
+                    }
+                    success = 1;
+                }
+            }
+            cJSON_Delete(j);
+        }
+    }
+
+    curl_slist_free_all(hdrs);
+    curl_easy_cleanup(curl);
+    free(payload);
+    free(resp.memory);
+    return success;
+}
+
 double uppaal_nn_get_pred(int room_id) {
     /* Return the stored prediction for `room_id`.
        Note: this is a simple accessor into the static buffer and does not
@@ -305,4 +496,13 @@ double uppaal_nn_get_pred(int room_id) {
        if the last update failed, the buffer entries may be `NAN`. */
     if(room_id < 0 || room_id >= NUM_ROOMS) return NAN;
     return latest_prediction[room_id];
+}
+
+int uppaal_nn_get_pred_int(int room_id) {
+    /* Return the stored integer prediction for `room_id`.
+       Note: this is a simple accessor into the static buffer and does not
+       perform any network I/O. If `uppaal_nn_update_integer` has not been called or
+       if the last update failed, the buffer entries may be `INT_MIN`. */
+    if(room_id < 0 || room_id >= NUM_ROOMS) return INT_MIN;
+    return latest_prediction_int[room_id];
 }
