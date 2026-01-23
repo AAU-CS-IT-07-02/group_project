@@ -334,12 +334,19 @@ class ODEFunc(nn.Module):
         super().__init__()
         self.latent_dim = latent_dim
         self.control_dim = control_dim
+        
+        self.dynamics_input = nn.Linear(latent_dim + control_dim, 512)
+        self.act1 = nn.Tanh()
+        self.dynamics_hidden = nn.Linear(512, 512)
+        self.act2 = nn.Tanh()
+        self.dynamics_output = nn.Linear(512, latent_dim)
+        
         self.net = nn.Sequential(
-            nn.Linear(latent_dim + control_dim, 512),
-            nn.Tanh(),
-            nn.Linear(512, 512),
-            nn.Tanh(),
-            nn.Linear(512, latent_dim)
+            self.dynamics_input,
+            self.act1,
+            self.dynamics_hidden,
+            self.act2,
+            self.dynamics_output
         )
         # Will be set externally per batch
         self.control_interp = None
@@ -389,10 +396,14 @@ class Encoder(nn.Module):
     """
     def __init__(self, input_dim, latent_dim):
         super().__init__()
+        self.encoder_input = nn.Linear(input_dim, 512)
+        self.act = nn.ReLU()
+        self.encoder_output = nn.Linear(512, latent_dim)
+
         self.net = nn.Sequential(
-            nn.Linear(input_dim, 512),
-            nn.ReLU(),
-            nn.Linear(512, latent_dim)
+            self.encoder_input,
+            self.act,
+            self.encoder_output
         )
     def forward(self, x0):
         """
@@ -417,10 +428,14 @@ class Decoder(nn.Module):
     """
     def __init__(self, latent_dim, output_dim):
         super().__init__()
+        self.decoder_input = nn.Linear(latent_dim, 512)
+        self.act = nn.ReLU()
+        self.decoder_output = nn.Linear(512, output_dim)
+
         self.net = nn.Sequential(
-            nn.Linear(latent_dim, 512),
-            nn.ReLU(),
-            nn.Linear(512, output_dim)
+            self.decoder_input,
+            self.act,
+            self.decoder_output
         )
     def forward(self, z_t):
         """
@@ -651,7 +666,128 @@ def evaluate(model, loader, mean_std_targets, device="cpu", method='rk4'):
     return {"mae_norm": mae, "rmse_norm": rmse}
 
 # -----------------------------
-# 7) Main: load data, build loaders, train, evaluate
+# 7) Visualization function
+# -----------------------------
+def visualize_model(latent_dim, control_dim, output_dim, output_dir="./model_graphs", batch_size=2, horizon=24):
+    """
+    Visualize the Neural ODE model architecture using pytorch-graph.
+    
+    Args:
+        latent_dim (int): Latent dimension of the model
+        control_dim (int): Control input dimension
+        output_dim (int): Output dimension (number of rooms)
+        output_dir (str): Directory to save visualization PNG files
+        batch_size (int): Batch size for visualization
+        horizon (int): Time horizon (H parameter)
+    """
+    try:
+        import pytorch_graph as pg
+    except ImportError:
+        print("[ERROR] pytorch-graph not installed. Install with: pip install pytorch-graph")
+        print("[ERROR] Also install system graphviz: sudo apt-get install graphviz")
+        return
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    print(f"\n Neural ODE Model Visualizer (pytorch-graph)")
+    print(f"   Output Directory: {output_dir}\n")
+    
+    # Initialize model
+    model = NeuralODEModel(
+        latent_dim=latent_dim,
+        control_dim=control_dim,
+        output_dim=output_dim
+    )
+    
+    # Create sample inputs
+    y0 = torch.randn(batch_size, output_dim)
+    controls_seq = torch.randn(batch_size, horizon, control_dim)
+    t_span = torch.linspace(0, horizon - 1, horizon)
+    
+    # Print model summary
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    encoder_params = sum(p.numel() for p in model.encoder.parameters())
+    odefunc_params = sum(p.numel() for p in model.odefunc.parameters())
+    decoder_params = sum(p.numel() for p in model.decoder.parameters())
+    
+    print("=" * 80)
+    print("NEURAL ODE MODEL SUMMARY".center(80))
+    print("=" * 80)
+    print(f"\n[1] Model Architecture:")
+    print(f"    - Latent Dimension:   {latent_dim}")
+    print(f"    - Control Dimension:  {control_dim}")
+    print(f"    - Output Dimension:   {output_dim}")
+    print(f"\n[2] Parameter Count:")
+    print(f"    - Total Parameters:     {total_params:,}")
+    print(f"    - Trainable Parameters: {trainable_params:,}")
+    print(f"    - Encoder Params:  {encoder_params:,}")
+    print(f"    - ODEFunc Params:  {odefunc_params:,}")
+    print(f"    - Decoder Params:  {decoder_params:,}")
+    print("=" * 80 + "\n")
+    
+    # Generate visualizations
+    print("Generating Clean Architecture Diagrams...")
+    print("-" * 40)
+    
+    try:
+        # Encoder visualization
+        print("Creating Encoder visualization...", end=" ")
+        pg.generate_research_paper_diagram(
+            model.encoder,
+            (batch_size, output_dim + control_dim),
+            os.path.join(output_dir, "encoder.png"),
+            title='Encoder Network'
+        )
+        print("✓ Saved encoder.png")
+    except Exception as e:
+        print(f"⚠ Skipped: {e}")
+    
+    try:
+        # Decoder visualization
+        print("Creating Decoder visualization...", end=" ")
+        pg.generate_research_paper_diagram(
+            model.decoder,
+            (batch_size, latent_dim),
+            os.path.join(output_dir, "decoder.png"),
+            title='Decoder Network'
+        )
+        print("✓ Saved decoder.png")
+    except Exception as e:
+        print(f"⚠ Skipped: {e}")
+    
+    try:
+        # ODEFunc visualization
+        print("Creating ODEFunc visualization...", end=" ")
+        pg.generate_research_paper_diagram(
+            model.odefunc.net,
+            (batch_size, latent_dim + control_dim),
+            os.path.join(output_dir, "odefunc.png"),
+            title='ODE Function Network'
+        )
+        print("✓ Saved odefunc.png")
+    except Exception as e:
+        print(f"⚠ Skipped: {e}")
+    
+    try:
+        print("Creating Full Model visualization...", end=" ")
+        
+        pg.generate_research_paper_diagram(
+            model,
+            (batch_size, output_dim + control_dim),
+            os.path.join(output_dir, "full_model.png")
+        )
+        print("✓ Saved full_model.png")
+    except Exception as e:
+        print(f"⚠ Skipped: {e}")
+    
+    print("\n" + "=" * 40)
+    print("✓ Visualization Complete!")
+    print(f"Check '{output_dir}' for PNG files")
+    print("=" * 40 + "\n")
+
+# -----------------------------
+# 8) Main: load data, build loaders, train, evaluate
 # -----------------------------
 def main(device=None):
     device = config["device"]
@@ -725,4 +861,28 @@ def main(device=None):
     print("Done.")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Neural ODE Training and Visualization")
+    parser.add_argument(
+        "--visualize",
+        action="store_true",
+        help="Visualize model architecture and save graphs (requires torchviz and graphviz)"
+    )
+    parser.add_argument(
+        "--viz-output",
+        type=str,
+        default="./model_graphs",
+        help="Output directory for visualization files (default: ./model_graphs)"
+    )
+    args = parser.parse_args()
+    
+    if args.visualize:
+        # Visualize mode: create model graphs
+        visualize_model(
+            latent_dim=LATENT_DIM,
+            control_dim=len(CONTROL_FEATURES) if CONTROL_FEATURES else 10,
+            output_dim=len(TARGET_FEATURES) if TARGET_FEATURES else 6,
+            output_dir=args.viz_output
+        )
+    else:
+        # Training mode: run full pipeline
+        main()
