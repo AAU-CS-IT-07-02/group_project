@@ -1,0 +1,36 @@
+- What is AAU BUILD
+    - TMV 23
+    - What is a smart building
+    - What is the equipment in TMV23
+    - What are the shortcommings in TMV23
+- Problem statement and Proposed solution
+    - What is the particular problem we identify, how we frame it
+    - How do we want to solve it
+        - What helps us solve it (a dataset exists)
+    - How this solution fits within the semester requirements (security, scalability and usefulness)
+        - How does each of these get fulfilled by parts of our solution?
+- Solution in more depth
+    - Explain the overall architecture, why we decided on it and what benefits does it bring
+    - Explain each of the components, their requirements and a success criteria
+    - Show the pretty diagram
+
+- Model
+    - Dataset
+        - Original attempt with BMS API
+        - Problems and how we solved them eventually
+        - Pivot to Simon's dataset (We let go of some of the scalability by not doing whole-building thermodynamics anymore, but keep some if we keep the generic nature of our data processing pipeline and the training after)
+        - Analysis/Showcase of the dataset
+            - Rooms covered (show the picture we made)
+            - Quick overview of columns and values
+            - Shortcommings and how we solved them (0.2% missing values but prunning was not suitable, interpolation, normalization, error magnitudes, etc)
+            - Data augmentation
+    - Modeling techniques
+        - PySINDy
+        
+- Controller
+
+- Analysis and Results
+    - Model performance
+    - Controller performance
+    - System property characterization
+- 
