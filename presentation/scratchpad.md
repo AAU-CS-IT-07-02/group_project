@@ -52,33 +52,25 @@ We found three scenarios were the property holds:
 
 ### Stability
 
-Stability addresses whether the system can recover when perturbed from its equilibrium state. In formal terms, we're examining Lyapunov stability: if you displace the system to some nearby state, the trajectory should converge back to the equilibrium point over time. The mathematical formulation states that the distance between the current state and the equilibrium state should shrink to zero as time progresses.
+Stability addresses whether the system can recover when perturbed from a state of equilibrium. We formalise it in terms of Lyapunov stability: if you displace the system to some nearby state, the trajectory should converge back to the equilibrium point over time. The mathematical formulation states that the distance between the current state and the equilibrium state should shrink to zero as time progresses.
 
-To verify this with SMC, we use a query that compares the system's average temperature in the first half of the simulation period versus the second half. The query evaluates whether the system, after sufficient settling time, remains close to its initial state. If the difference between these two averages falls within a specified margin, we can confirm the system has returned to stable behavior rather than drifting away from equilibrium.
-
-For the experimental scenarios, we deliberately perturbed the system by setting initial temperatures several degrees above or below the setpoint, then observing the controller's response. We tested different perturbation magnitudes to characterize the basin of stability and measured how long the system required to return to equilibrium after each disturbance.
-
-The verification results confirmed local Lyapunov stability with 95% confidence. When disturbed, the temperature deviates momentarily but reliably converges back to the setpoint within the control horizon. The controller successfully guides the system back to equilibrium, with recovery time scaling proportionally to the magnitude of the initial perturbation.
-
-From a security and safety perspective, stability verification is critical because real buildings continuously face unexpected disturbances: equipment failures, sudden occupancy changes, weather fluctuations, and sensor noise. Verified stability guarantees that regardless of these perturbations, the system will self-correct and return to safe operating conditions rather than diverging into potentially dangerous or uncomfortable states. This property is essential for maintaining occupant safety and comfort under real-world uncertainty.
+To verify this with SMC, we start from the equilibrium points discovered in the previous analysis. The UPPAAL templates first induce each of those equilibrium states in the system, then apply a perturbation for a defined period of time, and finally allow the system to settle back to equilibrium by applying the original control input configuration. We measure stability by comparing the system's average temperature in the first half of the simulation period versus the second half with the following query:  Pr[<= T]((time > T/2)&&(|t_avg(T/2) − t_avg(T)| < margin)). It evaluates whether the system, after sufficient settling time, remains close to the previous equilibrium state. 
+The verification results confirmed local Lyapunov stability with 95% confidence for the three scenarios.
 
 ---
 
 ### Reachability and Controllability
 
-**Definition**: The set of states reachable through control inputs; defines what operational conditions are actually achievable.
+Reachability is defined as the set of states for which there is a valid sequence of control inputs between the initial and target states. Formalised as follows: ∃u(t):x0​→xT​, there exists a control input u over time to take the system from x0 to xT.
 
-**Why it matters**: Operators need to know realistic bounds. Setting impossible targets (e.g., 22°C when outside is -10°C with only passive cooling) frustrates control and wastes energy. Understanding the reachable envelope prevents unrealistic demands.
+To verify the reachable envelope with SMC, we use two scenarios. A "Warm" controller that maximizes heating to find the upper bound, and a "Cold" controller that maximizes cooling to find the lower bound. Each one runs until thermal saturation, then we measure the extreme temperatures achieved achieved.
 
-**How we tested it**: We ran two control strategies: a "Warm" controller maximizing heating, and a "Cold" controller minimizing heating/maximizing ventilation. We measured the extreme temperatures reachable under each.
+Results show that we can reach temperatures of +5 C degrees and -3 C degrees around outside temperature. This asymmetry reflects the building's physical design: powerful heating through radiators versus limited passive ventilation with no mechanical cooling.
 
-**Results**:
-- **Maximum reachable**: Outside temperature + 5°C (reached under active heating)
-- **Minimum reachable**: Outside temperature − 3°C (reached under passive cooling)
-- **Asymmetry reflects physics**: Strong active heating, weak passive cooling
-- All verified with 95% confidence
+Controllability extends the definition of reachability by requiring that the system can be steered from any initial state to any target state within the feasible envelope. Formally described as: ∀x0, xT : ∃u(t) : x0 → xT. For any initial and target states x0 and xT, there exists a control input U over time that connects them.
 
-**Security implication**: Defines operational constraints. Provides realistic bounds for controller design and operator expectations. System can't violate physical limits—this is built-in safety.
+Under the assumption that the system dynamics are linear and the system is continuously controllable, any state within the upper and lower bound can be taken as the initial state and there would exists a control sequence from it to any temperature within the +5 and -3 reachable envelope.
+These key takeways can help us prevent impossible setpoints and establish the feasible state space for all control objectives.
 
 ---
 
