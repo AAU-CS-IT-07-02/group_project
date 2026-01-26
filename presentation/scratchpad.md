@@ -52,18 +52,15 @@ We found three scenarios were the property holds:
 
 ### Stability
 
-**Definition**: The system's ability to recover from perturbations and return to equilibrium. A fundamental property for control systems: small disturbances should not cause large deviations.
+Stability addresses whether the system can recover when perturbed from its equilibrium state. In formal terms, we're examining Lyapunov stability: if you displace the system to some nearby state, the trajectory should converge back to the equilibrium point over time. The mathematical formulation states that the distance between the current state and the equilibrium state should shrink to zero as time progresses.
 
-**Why it matters**: Real buildings experience unexpected disturbances—open windows, sudden occupancy, sensor spikes, weather changes. We need confidence the system self-corrects rather than diverging.
+To verify this with SMC, we use a query that compares the system's average temperature in the first half of the simulation period versus the second half. The query evaluates whether the system, after sufficient settling time, remains close to its initial state. If the difference between these two averages falls within a specified margin, we can confirm the system has returned to stable behavior rather than drifting away from equilibrium.
 
-**How we tested it**: We initialized the system at equilibrium, applied a bounded perturbation (e.g., sudden temperature spike), maintained it for a period, then released it. We measured whether the system returned to its original state within a tolerance.
+For the experimental scenarios, we deliberately perturbed the system by setting initial temperatures several degrees above or below the setpoint, then observing the controller's response. We tested different perturbation magnitudes to characterize the basin of stability and measured how long the system required to return to equilibrium after each disturbance.
 
-**Results**: 
-- System deviates momentarily when disturbed but **reliably returns to original state** with 95% confidence
-- Response is proportional to disturbance magnitude (larger spikes take longer to recover)
-- Local stability is robust across different control modes
+The verification results confirmed local Lyapunov stability with 95% confidence. When disturbed, the temperature deviates momentarily but reliably converges back to the setpoint within the control horizon. The controller successfully guides the system back to equilibrium, with recovery time scaling proportionally to the magnitude of the initial perturbation.
 
-**Security implication**: Justifies closed-loop control. Even if unexpected conditions arise, the system has proven capability to self-correct and maintain safe operation.
+From a security and safety perspective, stability verification is critical because real buildings continuously face unexpected disturbances: equipment failures, sudden occupancy changes, weather fluctuations, and sensor noise. Verified stability guarantees that regardless of these perturbations, the system will self-correct and return to safe operating conditions rather than diverging into potentially dangerous or uncomfortable states. This property is essential for maintaining occupant safety and comfort under real-world uncertainty.
 
 ---
 
