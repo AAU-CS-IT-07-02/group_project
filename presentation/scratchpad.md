@@ -5,7 +5,7 @@
 
 ### System Characterisation Notes
 
-One of the main non-functional requirements for this semester's project in CS-IT7 was security, which we had to let go of previously, as a compromise when pivoting from failed modelling techniques.
+One of the main non-functional requirements for this semester's project in CS-IT-07 was security, which we had to let go of previously as a compromise when pivoting from failed modelling techniques.
 
 In classical control theory, dynamical systems are often described in terms of differential equations. One of the main benefits of this representation is that it gives us access to rigorous mathematical tools that let us analyse the modelled dynamics and by proxy, the underlying system.
 
@@ -36,7 +36,7 @@ With this approach we can assess black-box systems because it doesn't require in
 
 ### Equilibrium
 
-There are a variety of properties that a often verified in controlled dynamical systems, but this project limited the scope to four of them. The first of which is equilibrium, that helps us find configurations were oscillations are reduced and there is no uncontrollable drift.
+There are a variety of properties that are often verified in controlled dynamical systems, but this project limited the scope to four of them. The first of which is equilibrium, that helps us find configurations were oscillations are reduced and there is no uncontrollable drift.
 
 It is defined as a point where system dynamics stabilize, a combination of system states and control inputs that don't generate change. It is formalised as a combination of system states X and control inputs U for which the first derivative of the dynamics is zero.
 We translated the property into an SMC query as: Pr[<=T] (<> total_t_derivative < threshold), where total_t_derivative is the numerically computed rate of change in system states. A threshold value is used to account for changes very close to zero and precision errors in floating point operations.
@@ -52,7 +52,7 @@ We found three scenarios were the property holds:
 
 ### Stability
 
-Stability addresses whether the system can recover when perturbed from a state of equilibrium. We formalise it in terms of Lyapunov stability: if you displace the system to some nearby state, the trajectory should converge back to the equilibrium point over time. The mathematical formulation states that the distance between the current state and the equilibrium state should shrink to zero as time progresses.
+Stability addresses whether the system can recover when perturbed from a state of equilibrium. We formalise it in terms of Lyapunov stability: if you displace the system to some nearby state, the trajectory should converge back to the equilibrium point over time. (The mathematical formulation states that the distance between the current state and the equilibrium state should shrink to zero as time progresses.)
 
 To verify this with SMC, we start from the equilibrium points discovered in the previous analysis. The UPPAAL templates first induce each of those equilibrium states in the system, then apply a perturbation for a defined period of time, and finally allow the system to settle back to equilibrium by applying the original control input configuration. We measure stability by comparing the system's average temperature in the first half of the simulation period versus the second half with the following query:  Pr[<= T]((time > T/2)&&(|t_avg(T/2) − t_avg(T)| < margin)). It evaluates whether the system, after sufficient settling time, remains close to the previous equilibrium state. 
 The verification results confirmed local Lyapunov stability with 95% confidence for the three scenarios.
@@ -63,7 +63,7 @@ The verification results confirmed local Lyapunov stability with 95% confidence 
 
 Reachability is defined as the set of states for which there is a valid sequence of control inputs between the initial and target states. Formalised as follows: ∃u(t):x0​→xT​, there exists a control input u over time to take the system from x0 to xT.
 
-To verify the reachable envelope with SMC, we use two scenarios. A "Warm" controller that maximizes heating to find the upper bound, and a "Cold" controller that maximizes cooling to find the lower bound. Each one runs until thermal saturation, then we measure the extreme temperatures achieved achieved.
+To verify the reachable envelope with SMC, we use two scenarios. A "Warm" controller that maximizes heating to find the upper bound, and a "Cold" controller that maximizes cooling to find the lower bound. Each one runs until thermal saturation, then we measure the extreme temperatures achieved.
 
 Results show that we can reach temperatures of +5 C degrees and -3 C degrees around outside temperature. This asymmetry reflects the building's physical design: powerful heating through radiators versus limited passive ventilation with no mechanical cooling.
 
@@ -76,14 +76,17 @@ These key takeways can help us prevent impossible setpoints and establish the fe
 
 ### Conclusions
 
-By applying Statistical Model Checking to our NODE model, we recovered the security guarantees we sacrificed when pivoting from equation-based to data-driven approaches. Three fundamental properties—equilibrium, stability, and reachability—comprehensively characterize system behavior and enable confident deployment in a safety-critical building environment.
+The NODE model demonstrates sufficient performance and accuracy for smart building control applications, with accurate prediction of future room temperatures across multiple prediction horizons. External forecasts, including weather conditions and solar irradiance, contribute meaningfully to model prediction accuracy, highlighting that reliable environmental data and predictive capabilities are critical for effective building control.
 
-The results show:
-- **Predictable behavior**: System settles into realistic equilibria
-- **Disturbance resilience**: System bounces back from unexpected events  
-- **Bounded operation**: System respects physical constraints and reachable limits
+Statistical Model Checking analysis confirms the model responds appropriately to control inputs and exhibits expected dynamical system properties: the system reaches equilibrium under different control regimes, returns to equilibrium following perturbations, and operates within a reachable envelope [T_out − 3°C, T_out + 5°C] defined by physical constraints. This asymmetry reveals the building's fundamental characteristics: powerful active heating through radiators versus limited passive cooling through ventilation.
 
-These guarantees are empirical rather than mathematical proofs, but they are statistically rigorous and directly applicable to real-world operation. For building control, this represents a pragmatic balance: we retain the accuracy of neural models while recovering formal verification capability.
+By applying SMC to our NODE model, we recovered the security guarantees we sacrificed when pivoting from white-box equation-based approaches to black-box neural networks. When models lack analytical interpretability, SMC provides a powerful alternative: reframing system characterization as stochastic reachability queries enables verification and property checking without requiring model interpretability or mathematical insight.
+
+The integration of UPPAAL with external models through C function calls and REST API provides a flexible framework for controller synthesis and verification. This approach enables direct coupling with arbitrary machine learning models, including the entire PyTorch ecosystem, opening possibilities for hybrid verification of modern learning-based control systems.
+
+Per-room bang-bang control outperforms global control strategies by avoiding deadlock situations when rooms have conflicting thermal requirements. The online policy learning controller demonstrates further improvements by balancing temperature accuracy and actuator efficiency, though generalization to scenarios outside the training distribution remains limited.
+
+While automatic system identification is a rapidly advancing field with strong technological support through diverse libraries and methods, selecting the appropriate modeling approach still requires informed assumptions about the system in question and significant knowledge of control theory and systems modeling.
 
 ---
 
