@@ -3,7 +3,7 @@
 
 ---
 
-### System Characterisation Notes
+### System Characterisation
 
 One of the main non-functional requirements for this semester's project in CS-IT-07 was security, which we had to let go of previously as a compromise when pivoting from failed modelling techniques.
 
@@ -76,6 +76,14 @@ These key takeways can help us prevent impossible setpoints and establish the fe
 
 ### Conclusions
 
+The NODE model shows sufficient accuracy; and that forecasts of external conditions are critical for performance
+SMC confirmed expected dynamics: equilibrium, stability, and a reachable/controllable envelope of [+ 5°C, -3°C] around outside temperature
+SMC successfully recovers security guarantees lost with black-box models
+UPPAAL + REST API integration enables integration with external ecosystems, most notably Pytorch
+With respect to the controller, Per-room control outperforms global; policy learning improves on all of them
+And overall, that System identification still requires domain knowledge and control theory expertise
+
+( Old stuff
 The NODE model demonstrates sufficient performance and accuracy for smart building control applications, with accurate prediction of future room temperatures across multiple prediction horizons. External forecasts, including weather conditions and solar irradiance, contribute meaningfully to model prediction accuracy, highlighting that reliable environmental data and predictive capabilities are critical for effective building control.
 
 Statistical Model Checking analysis confirms the model responds appropriately to control inputs and exhibits expected dynamical system properties: the system reaches equilibrium under different control regimes, returns to equilibrium following perturbations, and operates within a reachable envelope [T_out − 3°C, T_out + 5°C] defined by physical constraints. This asymmetry reveals the building's fundamental characteristics: powerful active heating through radiators versus limited passive cooling through ventilation.
@@ -87,15 +95,15 @@ The integration of UPPAAL with external models through C function calls and REST
 Per-room bang-bang control outperforms global control strategies by avoiding deadlock situations when rooms have conflicting thermal requirements. The online policy learning controller demonstrates further improvements by balancing temperature accuracy and actuator efficiency, though generalization to scenarios outside the training distribution remains limited.
 
 While automatic system identification is a rapidly advancing field with strong technological support through diverse libraries and methods, selecting the appropriate modeling approach still requires informed assumptions about the system in question and significant knowledge of control theory and systems modeling.
-
+)
 ---
 
 ### Further Work
-
-- **Extended property verification**: Expand beyond core properties to energy efficiency, comfort maintenance, actuator wear patterns
-- **Robustness analysis**: Characterize system behavior under sensor noise, actuator faults, and model uncertainty
-- **Scenario expansion**: Test broader range of disturbances and operating conditions
-- **Hybrid verification**: Combine SMC with classical methods on subsystems where interpretability is possible
-- **Real-world validation**: Deploy on actual building and compare simulation predictions with operational data
-
+- Real-world deployment and validation on actual building instead of simulation ​
+- Expand the scope of the model and controller to include whole-building thermodynamics​
+- Enhance controller expressivity: move to a wider range of configurations for each actuator​
+- Expand optimization objectives beyond actuator wear and comfort to include energy cost and carbon footprint ​
+- Assess transfer learning across buildings to evaluate generalization instead of retraining for each scenario ​
+- Long-horizon planning incorporating known future states outside prediction horizon (e.g., scheduled occupancy patterns) ​
+- Occupancy-aware control using booking systems for predictive pre-heating/cooling strategies ​
 ---
