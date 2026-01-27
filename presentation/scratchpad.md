@@ -1,13 +1,12 @@
 # System Characterisation
 
-
 ---
 
 ### System Characterisation
 
 One of the main non-functional requirements for this semester's project in CS-IT-07 was security, which we had to let go of previously as a compromise when pivoting from failed modelling techniques.
 
-In classical control theory, dynamical systems are often described in terms of differential equations. One of the main benefits of this representation is that it gives us access to rigorous mathematical tools that let us analyse the modelled dynamics and by proxy, the underlying system.
+In classical control theory, dynamical systems are often described in terms of differential equations, and one of the main benefits of this representation is that it gives us access to rigorous mathematical tools that let us analyse the modelled dynamics and by proxy, the underlying system.
 
 With this methodology one can prove properties and system behaviour invariants, and consequently provide formal security guarantees like a safe operating envelope for system, unrecoverable errors, unreachable states or response characteristic for disturbances.
 
@@ -38,13 +37,13 @@ With this approach we can assess black-box systems because it doesn't require in
 
 There are a variety of properties that are often verified in controlled dynamical systems, but this project limited the scope to four of them. The first of which is equilibrium, that helps us find configurations were oscillations are reduced and there is no uncontrollable drift.
 
-It is defined as a point where system dynamics stabilize, a combination of system states and control inputs that don't generate change. It is formalised as a combination of system states X and control inputs U for which the first derivative of the dynamics is zero.
+It is defined as a point where system dynamics stabilize, system states don't change over time. It is formalised as a combination of system states X and control inputs U for which the first derivative of the dynamics is zero.
 We translated the property into an SMC query as: Pr[<=T] (<> total_t_derivative < threshold), where total_t_derivative is the numerically computed rate of change in system states. A threshold value is used to account for changes very close to zero and precision errors in floating point operations.
 
 We found three scenarios were the property holds:
-1. Active heating only: System reaches thermal saturation (warm). When heating is continuously applied, room temperatures rise until limited by insulation loss and system capacity, settling at a warm equilibrium.
+1. Active heating only: Where heating is continuously applied, room temperatures rise until limited by insulation loss and system capacity, settling at a warm equilibrium.
 
-2. Passive cooling only: System reaches thermal saturation (cool). When ventilation removes heat without active heating, temperatures fall until the cooling capacity is exhausted, settling at a cool equilibrium.
+2. Passive cooling only: When ventilation removes heat without active heating, temperatures fall until the cooling capacity is exhausted, settling at a cool equilibrium.
 
 3. No control or disturbances: Without active heating or cooling inputs, indoor temperatures gradually converge to the external environment.
 
@@ -52,18 +51,18 @@ We found three scenarios were the property holds:
 
 ### Stability
 
-Stability addresses whether the system can recover when perturbed from a state of equilibrium. We formalise it in terms of Lyapunov stability: if you displace the system to some nearby state, the trajectory should converge back to the equilibrium point over time. (The mathematical formulation states that the distance between the current state and the equilibrium state should shrink to zero as time progresses.)
+Stability addresses whether the system can recover when perturbed from a state of equilibrium. We formalise it in terms of Lyapunov stability: if you displace the system to some nearby state, the trajectory should converge back to the equilibrium point over time.
 
-To verify this with SMC, we start from the equilibrium points discovered in the previous analysis. The UPPAAL templates first induce each of those equilibrium states in the system, then apply a perturbation for a defined period of time, and finally allow the system to settle back to equilibrium by applying the original control input configuration. We measure stability by comparing the system's average temperature in the first half of the simulation period versus the second half with the following query:  Pr[<= T]((time > T/2)&&(|t_avg(T/2) − t_avg(T)| < margin)). It evaluates whether the system, after sufficient settling time, remains close to the previous equilibrium state. 
+To verify this with SMC, we start from the equilibrium points discovered in the previous analysis. The UPPAAL templates first induce each of those equilibrium states in the system, then apply a perturbation for a defined period of time, and finally allow the system to settle back to equilibrium by applying the original control input configuration. We measure stability by comparing the system's average temperature in the first half of the simulation period versus the second half with the following query:  Pr[<= T]((time > T/2)&&(|t_avg(T/2) − t_avg(T)| < margin)). Which evaluates whether the system, after sufficient settling time, remains close to the previous equilibrium state. 
 The verification results confirmed local Lyapunov stability with 95% confidence for the three scenarios.
 
 ---
 
 ### Reachability and Controllability
 
-Reachability is defined as the set of states for which there is a valid sequence of control inputs between the initial and target states. Formalised as follows: ∃u(t):x0​→xT​, there exists a control input u over time to take the system from x0 to xT.
+Reachability is defined as the set of states for which there is a valid sequence of control inputs between the initial and target states. Formalised as follows: there exists a control input u over time to take the system from x0 to xT.
 
-To verify the reachable envelope with SMC, we use two scenarios. A "Warm" controller that maximizes heating to find the upper bound, and a "Cold" controller that maximizes cooling to find the lower bound. Each one runs until thermal saturation, then we measure the extreme temperatures achieved.
+To verify the reachable envelope with SMC, we use two scenarios. A "Warm" controller that maximizes heating to find the upper bound, and a "Cold" controller that maximizes cooling to find the lower bound. Each one runs until thermal saturation, and we measure the extreme temperatures achieved.
 
 Results show that we can reach temperatures of +5 C degrees and -3 C degrees around outside temperature. This asymmetry reflects the building's physical design: powerful heating through radiators versus limited passive ventilation with no mechanical cooling.
 
@@ -105,5 +104,6 @@ While automatic system identification is a rapidly advancing field with strong t
 - Expand optimization objectives beyond actuator wear and comfort to include energy cost and carbon footprint ​
 - Assess transfer learning across buildings to evaluate generalization instead of retraining for each scenario ​
 - Long-horizon planning incorporating known future states outside prediction horizon (e.g., scheduled occupancy patterns) ​
-- Occupancy-aware control using booking systems for predictive pre-heating/cooling strategies ​
+- Occupancy-aware control using booking systems for predictive pre-heating/cooling strategies
+
 ---
