@@ -70,7 +70,7 @@ Results show that we can reach temperatures of +5 C degrees and -3 C degrees aro
 Controllability extends the definition of reachability by requiring that the system can be steered from any initial state to any target state within the feasible envelope. Formally described as: ∀x0, xT : ∃u(t) : x0 → xT. For any initial and target states x0 and xT, there exists a control input U over time that connects them.
 
 Under the assumption that the system dynamics are linear and the system is continuously controllable, we say that any state within the upper and lower bound can be taken as the initial state and there would exists a control sequence from it to any temperature within the +5 and -3 reachable envelope.
-These key takeways can help us prevent impossible setpoints and establish the feasible state space for all control objectives.
+These key takeways can help us prevent impossible setpoints and establish the feasible state space for control objectives.
 
 ---
 
