@@ -1,0 +1,14 @@
+﻿Split Report
+====================
+Source file: ../../AAU-BUILD-sensor.actuator/6roomsOffice/dataset_with_occupancy_delimiter_comma.csv
+Delimiter: ','
+Timestamp column: timestamp
+Case sensitive: True
+Allow overlap: False
+
+Counts:
+  Sensors: 8 (incl. timestamp if present)
+  Actuators: 5 (incl. timestamp if present)
+  Configuration: 11 (incl. timestamp if present)
+Start time filter: 4/1/2023 13:05
+End time filter: 4/20/2023 20:20
